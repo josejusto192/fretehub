@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth";
 import { z } from "zod";
 
@@ -18,7 +18,6 @@ const freteSchema = z.object({
   observacoes: z.string().optional(),
 });
 
-// GET - Listar fretes (com filtros)
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
@@ -32,34 +31,36 @@ export async function GET(request: NextRequest) {
     const tipo_carga = searchParams.get("tipo_carga");
     const empresa_id = searchParams.get("empresa_id");
 
-    const where: Record<string, unknown> = {};
+    const admin = createAdminClient();
+    let query = admin
+      .from("fretes")
+      .select("*, empresa:empresas(razao_social, verificado), candidaturas(count)")
+      .order("created_at", { ascending: false });
 
     if (session.role === "caminhoneiro") {
-      where.status = "aberto";
+      query = query.eq("status", "aberto");
     }
+    if (empresa_id) query = query.eq("empresa_id", empresa_id);
+    if (origem_estado) query = query.eq("origem_estado", origem_estado);
+    if (destino_estado) query = query.eq("destino_estado", destino_estado);
+    if (tipo_carga) query = query.ilike("tipo_carga", `%${tipo_carga}%`);
 
-    if (empresa_id) where.empresa_id = empresa_id;
-    if (origem_estado) where.origem_estado = origem_estado;
-    if (destino_estado) where.destino_estado = destino_estado;
-    if (tipo_carga) where.tipo_carga = { contains: tipo_carga, mode: "insensitive" };
+    const { data: fretes, error } = await query;
+    if (error) throw error;
 
-    const fretes = await prisma.frete.findMany({
-      where,
-      include: {
-        empresa: { select: { razao_social: true, verificado: true } },
-        _count: { select: { candidaturas: true } },
-      },
-      orderBy: { created_at: "desc" },
-    });
+    const normalized = (fretes ?? []).map((f) => ({
+      ...f,
+      _count: { candidaturas: f.candidaturas?.[0]?.count ?? 0 },
+      candidaturas: undefined,
+    }));
 
-    return NextResponse.json({ fretes });
+    return NextResponse.json({ fretes: normalized });
   } catch (error) {
     console.error("Erro ao listar fretes:", error);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
 
-// POST - Criar frete (somente empresa)
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
@@ -73,8 +74,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const data = freteSchema.parse(body);
 
-    const frete = await prisma.frete.create({
-      data: {
+    const admin = createAdminClient();
+    const { data: frete, error } = await admin
+      .from("fretes")
+      .insert({
         empresa_id: session.userId,
         titulo: data.titulo,
         tipo_carga: data.tipo_carga,
@@ -83,13 +86,16 @@ export async function POST(request: NextRequest) {
         destino_cidade: data.destino_cidade,
         destino_estado: data.destino_estado,
         peso_total_ton: data.peso_total_ton,
-        peso_minimo_ton: data.peso_minimo_ton || null,
+        peso_minimo_ton: data.peso_minimo_ton ?? null,
         valor_por_tonelada: data.valor_por_tonelada,
-        data_coleta: new Date(data.data_coleta),
-        prazo_entrega: new Date(data.prazo_entrega),
+        data_coleta: new Date(data.data_coleta).toISOString(),
+        prazo_entrega: new Date(data.prazo_entrega).toISOString(),
         observacoes: data.observacoes,
-      },
-    });
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     return NextResponse.json({ frete }, { status: 201 });
   } catch (error) {

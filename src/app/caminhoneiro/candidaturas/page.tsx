@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -11,17 +11,14 @@ export default async function MeusCandidaturasPage() {
   const session = await getSession();
   if (!session || session.role !== "caminhoneiro") redirect("/login");
 
-  const candidaturas = await prisma.candidatura.findMany({
-    where: { caminhoneiro_id: session.userId },
-    include: {
-      frete: {
-        include: {
-          empresa: { select: { razao_social: true } },
-        },
-      },
-    },
-    orderBy: { created_at: "desc" },
-  });
+  const admin = createAdminClient();
+  const { data: candidaturas } = await admin
+    .from("candidaturas")
+    .select("*, frete:fretes(*, empresa:empresas(razao_social))")
+    .eq("caminhoneiro_id", session.userId)
+    .order("created_at", { ascending: false });
+
+  const list = candidaturas ?? [];
 
   return (
     <div>
@@ -31,11 +28,11 @@ export default async function MeusCandidaturasPage() {
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 mt-2">Minhas Candidaturas</h1>
         <p className="text-gray-500 mt-1">
-          {candidaturas.length} candidatura{candidaturas.length !== 1 ? "s" : ""} no total
+          {list.length} candidatura{list.length !== 1 ? "s" : ""} no total
         </p>
       </div>
 
-      {candidaturas.length === 0 ? (
+      {list.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12 text-gray-500">
             <p className="text-lg">Você ainda não se candidatou a nenhum frete</p>
@@ -46,7 +43,7 @@ export default async function MeusCandidaturasPage() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {candidaturas.map((candidatura) => (
+          {list.map((candidatura) => (
             <Card key={candidatura.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between gap-4">
@@ -68,7 +65,7 @@ export default async function MeusCandidaturasPage() {
                     </p>
                     {candidatura.mensagem && (
                       <p className="text-gray-400 text-sm italic mt-1">
-                        "{candidatura.mensagem}"
+                        &quot;{candidatura.mensagem}&quot;
                       </p>
                     )}
                     <p className="text-xs text-gray-400 mt-2">
@@ -94,14 +91,12 @@ export default async function MeusCandidaturasPage() {
                   </div>
                 </div>
 
-                {/* Mensagem especial para candidatura aceita */}
                 {candidatura.status === "aceita" && (
                   <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
                     <p className="text-green-700 text-sm font-medium">
                       🎉 Parabéns! Sua candidatura foi aceita. Entre em contato com a empresa para
                       combinar os próximos passos.
                     </p>
-                    {/* TODO: Stripe - exibir aqui informações de pagamento após integração */}
                   </div>
                 )}
               </CardContent>

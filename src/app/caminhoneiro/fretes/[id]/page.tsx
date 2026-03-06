@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -17,27 +17,27 @@ export default async function FreteDetailPage({
   if (!session || session.role !== "caminhoneiro") redirect("/login");
 
   const { id } = await params;
+  const admin = createAdminClient();
 
-  const [frete, caminhoneiro, candidaturaExistente] = await Promise.all([
-    prisma.frete.findUnique({
-      where: { id },
-      include: {
-        empresa: {
-          select: { razao_social: true, telefone: true, verificado: true },
-        },
-        _count: { select: { candidaturas: true } },
-      },
-    }),
-    prisma.caminhoneiro.findUnique({
-      where: { id: session.userId },
-      select: { capacidade_toneladas: true, nome_completo: true },
-    }),
-    prisma.candidatura.findUnique({
-      where: {
-        frete_id_caminhoneiro_id: { frete_id: id, caminhoneiro_id: session.userId },
-      },
-    }),
-  ]);
+  const [{ data: frete }, { data: caminhoneiro }, { data: candidaturaExistente }] =
+    await Promise.all([
+      admin
+        .from("fretes")
+        .select("*, empresa:empresas(razao_social, telefone, verificado), candidaturas(count)")
+        .eq("id", id)
+        .single(),
+      admin
+        .from("caminhoneiros")
+        .select("capacidade_toneladas, nome_completo")
+        .eq("id", session.userId)
+        .single(),
+      admin
+        .from("candidaturas")
+        .select("id, status")
+        .eq("frete_id", id)
+        .eq("caminhoneiro_id", session.userId)
+        .single(),
+    ]);
 
   if (!frete) notFound();
 
@@ -45,6 +45,7 @@ export default async function FreteDetailPage({
   const pesoMinimo = frete.peso_minimo_ton ? Number(frete.peso_minimo_ton) : null;
   const bloqueado = pesoMinimo !== null && capacidade < pesoMinimo;
   const valorTotal = Number(frete.valor_por_tonelada) * Number(frete.peso_total_ton);
+  const totalCandidaturas = frete.candidaturas?.[0]?.count ?? 0;
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -134,25 +135,21 @@ export default async function FreteDetailPage({
                 <strong>R$ {valorTotal.toFixed(2)}</strong>
               </p>
               <p className="text-xs text-blue-500 mt-0.5">
-                {frete._count.candidaturas} candidatura
-                {frete._count.candidaturas !== 1 ? "s" : ""} recebida
-                {frete._count.candidaturas !== 1 ? "s" : ""}
+                {totalCandidaturas} candidatura{totalCandidaturas !== 1 ? "s" : ""} recebida
+                {totalCandidaturas !== 1 ? "s" : ""}
               </p>
             </div>
 
             {frete.observacoes && (
               <div>
                 <Separator className="my-2" />
-                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                  Observações
-                </p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Observações</p>
                 <p className="text-gray-700 text-sm">{frete.observacoes}</p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Formulário de candidatura */}
         {frete.status === "aberto" && (
           <Card>
             <CardHeader>
@@ -179,8 +176,8 @@ export default async function FreteDetailPage({
                     ⚠️ Capacidade insuficiente para este frete
                   </p>
                   <p className="text-red-600 text-sm mt-1">
-                    Sua capacidade ({capacidade}t) é inferior ao peso mínimo exigido (
-                    {pesoMinimo}t). Você não pode se candidatar a este frete.
+                    Sua capacidade ({capacidade}t) é inferior ao peso mínimo exigido ({pesoMinimo}
+                    t). Você não pode se candidatar a este frete.
                   </p>
                 </div>
               ) : (

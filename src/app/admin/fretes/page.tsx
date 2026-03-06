@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
@@ -9,13 +9,17 @@ export default async function AdminFretesPage() {
   const session = await getSession();
   if (!session || session.role !== "admin") redirect("/login");
 
-  const fretes = await prisma.frete.findMany({
-    include: {
-      empresa: { select: { razao_social: true } },
-      _count: { select: { candidaturas: true } },
-    },
-    orderBy: { created_at: "desc" },
-  });
+  const admin = createAdminClient();
+  const { data: rawFretes } = await admin
+    .from("fretes")
+    .select("*, empresa:empresas(razao_social), candidaturas(count)")
+    .order("created_at", { ascending: false });
+
+  const fretes = (rawFretes ?? []).map((f) => ({
+    ...f,
+    _count: { candidaturas: f.candidaturas?.[0]?.count ?? 0 },
+    candidaturas: undefined,
+  }));
 
   return (
     <div>

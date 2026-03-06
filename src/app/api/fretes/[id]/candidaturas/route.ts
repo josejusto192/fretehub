@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth";
-import { sendCandidaturaAceitaEmail, sendCandidaturaRecusadaEmail } from "@/lib/email";
 import { z } from "zod";
 
 const candidaturaSchema = z.object({
@@ -9,7 +8,6 @@ const candidaturaSchema = z.object({
   mensagem: z.string().optional(),
 });
 
-// GET - Listar candidaturas de um frete
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,28 +19,29 @@ export async function GET(
     }
 
     const { id } = await params;
+    const admin = createAdminClient();
 
-    const frete = await prisma.frete.findUnique({ where: { id } });
+    const { data: frete } = await admin
+      .from("fretes")
+      .select("empresa_id")
+      .eq("id", id)
+      .single();
+
     if (!frete) {
       return NextResponse.json({ error: "Frete não encontrado" }, { status: 404 });
     }
 
-    // Somente empresa dona ou admin pode ver todas as candidaturas
     if (session.role !== "admin" && frete.empresa_id !== session.userId) {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
 
-    const candidaturas = await prisma.candidatura.findMany({
-      where: { frete_id: id },
-      include: {
-        caminhoneiro: {
-          include: {
-            user: { select: { email: true, status: true } },
-          },
-        },
-      },
-      orderBy: { created_at: "desc" },
-    });
+    const { data: candidaturas, error } = await admin
+      .from("candidaturas")
+      .select("*, caminhoneiro:caminhoneiros(*, user:users(email, status))")
+      .eq("frete_id", id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
 
     return NextResponse.json({ candidaturas });
   } catch (error) {
@@ -51,7 +50,6 @@ export async function GET(
   }
 }
 
-// POST - Criar candidatura (somente caminhoneiro)
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -72,7 +70,14 @@ export async function POST(
     const body = await request.json();
     const { toneladas_ofertadas, mensagem } = candidaturaSchema.parse(body);
 
-    const frete = await prisma.frete.findUnique({ where: { id } });
+    const admin = createAdminClient();
+
+    const { data: frete } = await admin
+      .from("fretes")
+      .select("status, peso_minimo_ton")
+      .eq("id", id)
+      .single();
+
     if (!frete) {
       return NextResponse.json({ error: "Frete não encontrado" }, { status: 404 });
     }
@@ -80,14 +85,19 @@ export async function POST(
       return NextResponse.json({ error: "Este frete não está mais disponível" }, { status: 400 });
     }
 
-    const caminhoneiro = await prisma.caminhoneiro.findUnique({
-      where: { id: session.userId },
-    });
+    const { data: caminhoneiro } = await admin
+      .from("caminhoneiros")
+      .select("capacidade_toneladas")
+      .eq("id", session.userId)
+      .single();
+
     if (!caminhoneiro) {
-      return NextResponse.json({ error: "Perfil de caminhoneiro não encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Perfil de caminhoneiro não encontrado" },
+        { status: 404 }
+      );
     }
 
-    // Regra de negócio: verificar peso mínimo
     if (frete.peso_minimo_ton !== null && frete.peso_minimo_ton !== undefined) {
       const capacidade = Number(caminhoneiro.capacidade_toneladas);
       const pesoMinimo = Number(frete.peso_minimo_ton);
@@ -101,10 +111,13 @@ export async function POST(
       }
     }
 
-    // Verificar se já se candidatou
-    const candidaturaExistente = await prisma.candidatura.findUnique({
-      where: { frete_id_caminhoneiro_id: { frete_id: id, caminhoneiro_id: session.userId } },
-    });
+    const { data: candidaturaExistente } = await admin
+      .from("candidaturas")
+      .select("id")
+      .eq("frete_id", id)
+      .eq("caminhoneiro_id", session.userId)
+      .single();
+
     if (candidaturaExistente) {
       return NextResponse.json(
         { error: "Você já se candidatou a este frete" },
@@ -112,15 +125,19 @@ export async function POST(
       );
     }
 
-    const candidatura = await prisma.candidatura.create({
-      data: {
+    const { data: candidatura, error } = await admin
+      .from("candidaturas")
+      .insert({
         frete_id: id,
         caminhoneiro_id: session.userId,
         toneladas_ofertadas,
         mensagem,
         status: "pendente",
-      },
-    });
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     return NextResponse.json({ candidatura }, { status: 201 });
   } catch (error) {

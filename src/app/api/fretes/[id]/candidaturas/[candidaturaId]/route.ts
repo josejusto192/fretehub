@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth";
 import { sendCandidaturaAceitaEmail, sendCandidaturaRecusadaEmail } from "@/lib/email";
 
-// PATCH - Aceitar ou recusar candidatura (somente empresa)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; candidaturaId: string }> }
@@ -25,7 +24,14 @@ export async function PATCH(
       return NextResponse.json({ error: "Status inválido" }, { status: 400 });
     }
 
-    const frete = await prisma.frete.findUnique({ where: { id } });
+    const admin = createAdminClient();
+
+    const { data: frete } = await admin
+      .from("fretes")
+      .select("empresa_id, titulo, origem_cidade, origem_estado, destino_cidade, destino_estado")
+      .eq("id", id)
+      .single();
+
     if (!frete) {
       return NextResponse.json({ error: "Frete não encontrado" }, { status: 404 });
     }
@@ -34,33 +40,26 @@ export async function PATCH(
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
 
-    const candidatura = await prisma.candidatura.findUnique({
-      where: { id: candidaturaId },
-      include: {
-        caminhoneiro: {
-          include: { user: { select: { email: true } } },
-        },
-      },
-    });
+    const { data: candidatura } = await admin
+      .from("candidaturas")
+      .select("*, caminhoneiro:caminhoneiros(nome_completo, user:users(email))")
+      .eq("id", candidaturaId)
+      .single();
 
     if (!candidatura) {
       return NextResponse.json({ error: "Candidatura não encontrada" }, { status: 404 });
     }
 
-    const updated = await prisma.candidatura.update({
-      where: { id: candidaturaId },
-      data: { status },
-    });
+    const { data: updated, error } = await admin
+      .from("candidaturas")
+      .update({ status })
+      .eq("id", candidaturaId)
+      .select()
+      .single();
 
-    // Enviar e-mail de notificação
+    if (error) throw error;
+
     if (status === "aceita") {
-      // TODO: Stripe - criar PaymentIntent aqui ao aceitar a candidatura
-      // const paymentIntent = await stripe.paymentIntents.create({
-      //   amount: calcularValorTotal(frete, candidatura),
-      //   currency: 'brl',
-      //   metadata: { frete_id: id, candidatura_id: candidaturaId }
-      // });
-
       await sendCandidaturaAceitaEmail(
         candidatura.caminhoneiro.user.email,
         candidatura.caminhoneiro.nome_completo,
@@ -71,11 +70,7 @@ export async function PATCH(
         frete.destino_estado
       );
 
-      // Atualizar status do frete para em_andamento
-      await prisma.frete.update({
-        where: { id },
-        data: { status: "em_andamento" },
-      });
+      await admin.from("fretes").update({ status: "em_andamento" }).eq("id", id);
     } else if (status === "recusada") {
       await sendCandidaturaRecusadaEmail(
         candidatura.caminhoneiro.user.email,

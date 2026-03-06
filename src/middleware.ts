@@ -1,77 +1,13 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify } from "jose";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "fallback-secret-change-in-production"
-);
-
-// Rotas públicas que não requerem autenticação
 const publicRoutes = ["/", "/login", "/cadastro/empresa", "/cadastro/caminhoneiro"];
 
-// Rotas por role
-const roleRoutes: Record<string, string[]> = {
-  empresa: ["/empresa"],
-  caminhoneiro: ["/caminhoneiro"],
-  admin: ["/admin"],
+const roleRoutes: Record<string, string> = {
+  empresa: "/empresa",
+  caminhoneiro: "/caminhoneiro",
+  admin: "/admin",
 };
-
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Permitir rotas públicas e de API
-  if (
-    publicRoutes.includes(pathname) ||
-    pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon")
-  ) {
-    return NextResponse.next();
-  }
-
-  const token = request.cookies.get("fretehub-token")?.value;
-
-  if (!token) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    const role = payload.role as string;
-    const status = payload.status as string;
-
-    // Bloquear usuários bloqueados
-    if (status === "bloqueado") {
-      const response = NextResponse.redirect(new URL("/login", request.url));
-      response.cookies.delete("fretehub-token");
-      return response;
-    }
-
-    // Verificar acesso por role
-    for (const [routeRole, routes] of Object.entries(roleRoutes)) {
-      if (routes.some((route) => pathname.startsWith(route))) {
-        if (role !== routeRole && role !== "admin") {
-          // Redirecionar para o dashboard correto
-          const dashboardUrl = getDashboardUrl(role);
-          return NextResponse.redirect(new URL(dashboardUrl, request.url));
-        }
-      }
-    }
-
-    // Adicionar dados do usuário no header para uso nos Server Components
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set("x-user-id", payload.userId as string);
-    requestHeaders.set("x-user-role", role);
-    requestHeaders.set("x-user-email", payload.email as string);
-
-    return NextResponse.next({
-      request: { headers: requestHeaders },
-    });
-  } catch {
-    const response = NextResponse.redirect(new URL("/login", request.url));
-    response.cookies.delete("fretehub-token");
-    return response;
-  }
-}
 
 function getDashboardUrl(role: string): string {
   switch (role) {
@@ -84,6 +20,60 @@ function getDashboardUrl(role: string): string {
     default:
       return "/login";
   }
+}
+
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+
+  if (
+    publicRoutes.includes(pathname) ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon")
+  ) {
+    return supabaseResponse;
+  }
+
+  if (!user) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  const role = user.user_metadata?.role as string;
+
+  for (const [routeRole, routePrefix] of Object.entries(roleRoutes)) {
+    if (pathname.startsWith(routePrefix)) {
+      if (role !== routeRole && role !== "admin") {
+        return NextResponse.redirect(new URL(getDashboardUrl(role), request.url));
+      }
+    }
+  }
+
+  return supabaseResponse;
 }
 
 export const config = {

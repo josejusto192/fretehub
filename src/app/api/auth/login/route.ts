@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { createToken } from "@/lib/auth";
-import bcrypt from "bcryptjs";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -14,44 +13,40 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password } = loginSchema.parse(body);
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (!user) {
+    if (error || !data.user) {
       return NextResponse.json({ error: "Credenciais inválidas" }, { status: 401 });
     }
 
-    if (user.status === "bloqueado") {
+    const admin = createAdminClient();
+    const { data: profile } = await admin
+      .from("users")
+      .select("role, status")
+      .eq("id", data.user.id)
+      .single();
+
+    if (!profile) {
+      return NextResponse.json({ error: "Perfil não encontrado" }, { status: 404 });
+    }
+
+    if (profile.status === "bloqueado") {
+      await supabase.auth.signOut();
       return NextResponse.json(
         { error: "Conta bloqueada. Entre em contato com o suporte." },
         { status: 403 }
       );
     }
 
-    const isValid = await bcrypt.compare(password, user.password_hash);
-    if (!isValid) {
-      return NextResponse.json({ error: "Credenciais inválidas" }, { status: 401 });
-    }
-
-    const token = await createToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      status: user.status,
+    return NextResponse.json({
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        role: profile.role,
+        status: profile.status,
+      },
     });
-
-    const response = NextResponse.json({
-      user: { id: user.id, email: user.email, role: user.role, status: user.status },
-    });
-
-    response.cookies.set("fretehub-token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 dias
-      path: "/",
-    });
-
-    return response;
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0].message }, { status: 400 });

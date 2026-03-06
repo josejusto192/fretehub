@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { createToken } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWelcomeEmail } from "@/lib/email";
-import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 const empresaSchema = z.object({
@@ -20,63 +19,67 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const data = empresaSchema.parse(body);
 
-    // Verificar duplicatas
-    const [emailExiste, cnpjExiste] = await Promise.all([
-      prisma.user.findUnique({ where: { email: data.email } }),
-      prisma.empresa.findUnique({ where: { cnpj: data.cnpj } }),
-    ]);
+    const admin = createAdminClient();
 
-    if (emailExiste) {
-      return NextResponse.json({ error: "E-mail já cadastrado" }, { status: 409 });
-    }
+    const { data: cnpjExiste } = await admin
+      .from("empresas")
+      .select("id")
+      .eq("cnpj", data.cnpj)
+      .single();
+
     if (cnpjExiste) {
       return NextResponse.json({ error: "CNPJ já cadastrado" }, { status: 409 });
     }
 
-    const password_hash = await bcrypt.hash(data.password, 12);
-
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        password_hash,
-        role: "empresa",
-        status: "pendente",
-        empresa: {
-          create: {
-            razao_social: data.razao_social,
-            cnpj: data.cnpj,
-            telefone: data.telefone,
-            endereco: { cidade: data.cidade, estado: data.estado },
-            verificado: false,
-          },
-        },
-      },
+    const supabase = await createClient();
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: { data: { role: "empresa" } },
     });
 
-    // Enviar e-mail de boas-vindas
-    await sendWelcomeEmail(user.email, data.razao_social, "empresa");
+    if (authError || !authData.user) {
+      if (authError?.message?.includes("already registered")) {
+        return NextResponse.json({ error: "E-mail já cadastrado" }, { status: 409 });
+      }
+      return NextResponse.json(
+        { error: authError?.message || "Erro ao criar conta" },
+        { status: 400 }
+      );
+    }
 
-    const token = await createToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      status: user.status,
+    const { error: userError } = await admin.from("users").insert({
+      id: authData.user.id,
+      email: data.email,
+      role: "empresa",
+      status: "pendente",
     });
 
-    const response = NextResponse.json(
-      { user: { id: user.id, email: user.email, role: user.role, status: user.status } },
+    if (userError) {
+      await admin.auth.admin.deleteUser(authData.user.id);
+      return NextResponse.json({ error: "Erro ao criar perfil" }, { status: 500 });
+    }
+
+    const { error: empresaError } = await admin.from("empresas").insert({
+      id: authData.user.id,
+      razao_social: data.razao_social,
+      cnpj: data.cnpj,
+      telefone: data.telefone,
+      endereco: { cidade: data.cidade, estado: data.estado },
+      verificado: false,
+    });
+
+    if (empresaError) {
+      await admin.auth.admin.deleteUser(authData.user.id);
+      return NextResponse.json({ error: "Erro ao criar empresa" }, { status: 500 });
+    }
+
+    await sendWelcomeEmail(data.email, data.razao_social, "empresa");
+
+    return NextResponse.json(
+      { user: { id: authData.user.id, email: data.email, role: "empresa", status: "pendente" } },
       { status: 201 }
     );
-
-    response.cookies.set("fretehub-token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
-      path: "/",
-    });
-
-    return response;
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0].message }, { status: 400 });

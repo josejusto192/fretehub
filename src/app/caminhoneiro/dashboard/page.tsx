@@ -2,9 +2,8 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FreteSearchFilters } from "@/components/caminhoneiro/FreteSearchFilters";
 
@@ -23,33 +22,32 @@ export default async function CaminhoneiroDashboard({
   if (!session || session.role !== "caminhoneiro") redirect("/login");
 
   const params = await searchParams;
+  const admin = createAdminClient();
 
-  const [caminhoneiro, fretes] = await Promise.all([
-    prisma.caminhoneiro.findUnique({
-      where: { id: session.userId },
-      select: {
-        nome_completo: true,
-        tipo_caminhao: true,
-        capacidade_toneladas: true,
-        verificado: true,
-      },
-    }),
-    prisma.frete.findMany({
-      where: {
-        status: "aberto",
-        ...(params.origem_estado && { origem_estado: params.origem_estado }),
-        ...(params.destino_estado && { destino_estado: params.destino_estado }),
-        ...(params.tipo_carga && {
-          tipo_carga: { contains: params.tipo_carga, mode: "insensitive" as const },
-        }),
-      },
-      include: {
-        empresa: { select: { razao_social: true, verificado: true } },
-        _count: { select: { candidaturas: true } },
-      },
-      orderBy: { created_at: "desc" },
-    }),
+  let query = admin
+    .from("fretes")
+    .select("*, empresa:empresas(razao_social, verificado), candidaturas(count)")
+    .eq("status", "aberto")
+    .order("created_at", { ascending: false });
+
+  if (params.origem_estado) query = query.eq("origem_estado", params.origem_estado);
+  if (params.destino_estado) query = query.eq("destino_estado", params.destino_estado);
+  if (params.tipo_carga) query = query.ilike("tipo_carga", `%${params.tipo_carga}%`);
+
+  const [{ data: rawFretes }, { data: caminhoneiro }] = await Promise.all([
+    query,
+    admin
+      .from("caminhoneiros")
+      .select("nome_completo, tipo_caminhao, capacidade_toneladas, verificado")
+      .eq("id", session.userId)
+      .single(),
   ]);
+
+  const fretes = (rawFretes ?? []).map((f) => ({
+    ...f,
+    _count: { candidaturas: f.candidaturas?.[0]?.count ?? 0 },
+    candidaturas: undefined,
+  }));
 
   const capacidade = Number(caminhoneiro?.capacidade_toneladas || 0);
 
@@ -74,10 +72,8 @@ export default async function CaminhoneiroDashboard({
         </Link>
       </div>
 
-      {/* Filtros de busca */}
       <FreteSearchFilters />
 
-      {/* Lista de fretes */}
       <div className="mt-6">
         <h2 className="text-lg font-semibold text-gray-700 mb-4">
           {fretes.length} frete{fretes.length !== 1 ? "s" : ""} disponíve
@@ -120,9 +116,7 @@ export default async function CaminhoneiroDashboard({
                         <p className="text-gray-500 text-sm mt-1">
                           📦 {frete.tipo_carga} · {Number(frete.peso_total_ton)}t total
                           {pesoMinimo && (
-                            <span className="ml-1 text-orange-600">
-                              · Mínimo: {pesoMinimo}t
-                            </span>
+                            <span className="ml-1 text-orange-600">· Mínimo: {pesoMinimo}t</span>
                           )}
                         </p>
                         <p className="text-gray-500 text-sm">
@@ -131,14 +125,13 @@ export default async function CaminhoneiroDashboard({
                           {frete._count.candidaturas !== 1 ? "s" : ""}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
-                          Coleta:{" "}
-                          {new Date(frete.data_coleta).toLocaleDateString("pt-BR")} · Entrega:{" "}
-                          {new Date(frete.prazo_entrega).toLocaleDateString("pt-BR")}
+                          Coleta: {new Date(frete.data_coleta).toLocaleDateString("pt-BR")} ·
+                          Entrega: {new Date(frete.prazo_entrega).toLocaleDateString("pt-BR")}
                         </p>
                         {bloqueado && (
                           <p className="text-red-500 text-xs mt-2 font-medium">
-                            ⚠️ Sua capacidade ({capacidade}t) é inferior ao peso mínimo exigido
-                            ({pesoMinimo}t)
+                            ⚠️ Sua capacidade ({capacidade}t) é inferior ao peso mínimo exigido (
+                            {pesoMinimo}t)
                           </p>
                         )}
                       </div>

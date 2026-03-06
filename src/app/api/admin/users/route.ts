@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
@@ -13,22 +13,17 @@ export async function GET(request: NextRequest) {
     const role = searchParams.get("role");
     const status = searchParams.get("status");
 
-    const users = await prisma.user.findMany({
-      where: {
-        ...(role && { role: role as "empresa" | "caminhoneiro" | "admin" }),
-        ...(status && { status: status as "pendente" | "ativo" | "bloqueado" }),
-      },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        status: true,
-        created_at: true,
-        empresa: { select: { razao_social: true, cnpj: true, verificado: true } },
-        caminhoneiro: { select: { nome_completo: true, cpf: true, verificado: true } },
-      },
-      orderBy: { created_at: "desc" },
-    });
+    const admin = createAdminClient();
+    let query = admin
+      .from("users")
+      .select("id, email, role, status, created_at, empresa:empresas(razao_social, cnpj, verificado), caminhoneiro:caminhoneiros(nome_completo, cpf, verificado)")
+      .order("created_at", { ascending: false });
+
+    if (role) query = query.eq("role", role);
+    if (status) query = query.eq("status", status);
+
+    const { data: users, error } = await query;
+    if (error) throw error;
 
     return NextResponse.json({ users });
   } catch (error) {
@@ -51,29 +46,22 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "userId obrigatório" }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const admin = createAdminClient();
+
+    const { data: user } = await admin.from("users").select("role").eq("id", userId).single();
     if (!user) {
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
     }
 
     if (status) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { status },
-      });
+      await admin.from("users").update({ status }).eq("id", userId);
     }
 
     if (verificado !== undefined) {
       if (user.role === "empresa") {
-        await prisma.empresa.update({
-          where: { id: userId },
-          data: { verificado },
-        });
+        await admin.from("empresas").update({ verificado }).eq("id", userId);
       } else if (user.role === "caminhoneiro") {
-        await prisma.caminhoneiro.update({
-          where: { id: userId },
-          data: { verificado },
-        });
+        await admin.from("caminhoneiros").update({ verificado }).eq("id", userId);
       }
     }
 

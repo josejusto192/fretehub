@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminUserActions } from "@/components/admin/AdminUserActions";
 
@@ -19,33 +19,29 @@ export default async function AdminUsuariosPage({
   if (!session || session.role !== "admin") redirect("/login");
 
   const params = await searchParams;
+  const admin = createAdminClient();
 
-  const users = await prisma.user.findMany({
-    where: {
-      ...(params.role && { role: params.role as "empresa" | "caminhoneiro" | "admin" }),
-      ...(params.status && {
-        status: params.status as "pendente" | "ativo" | "bloqueado",
-      }),
-    },
-    select: {
-      id: true,
-      email: true,
-      role: true,
-      status: true,
-      created_at: true,
-      empresa: { select: { razao_social: true, cnpj: true, verificado: true } },
-      caminhoneiro: {
-        select: { nome_completo: true, cpf: true, verificado: true, tipo_caminhao: true },
-      },
-    },
-    orderBy: { created_at: "desc" },
-  });
+  let query = admin
+    .from("users")
+    .select(
+      "id, email, role, status, created_at, empresa:empresas(razao_social, cnpj, verificado), caminhoneiro:caminhoneiros(nome_completo, cpf, verificado, tipo_caminhao)"
+    )
+    .order("created_at", { ascending: false });
+
+  if (params.role) query = query.eq("role", params.role);
+  if (params.status) query = query.eq("status", params.status);
+
+  const { data: _users } = await query;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const list = (_users ?? []) as any[];
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Gerenciar Usuários</h1>
-        <p className="text-gray-500 mt-1">{users.length} usuário{users.length !== 1 ? "s" : ""}</p>
+        <p className="text-gray-500 mt-1">
+          {list.length} usuário{list.length !== 1 ? "s" : ""}
+        </p>
       </div>
 
       <Card>
@@ -66,7 +62,7 @@ export default async function AdminUsuariosPage({
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {list.map((u) => (
                   <tr key={u.id} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-2">
                       <div className="font-medium">

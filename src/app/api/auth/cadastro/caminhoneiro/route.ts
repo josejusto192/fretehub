@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { createToken } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWelcomeEmail } from "@/lib/email";
-import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 const caminhoneiroSchema = z.object({
@@ -15,8 +14,6 @@ const caminhoneiroSchema = z.object({
   numero_antt: z.string().min(1, "Número ANTT obrigatório"),
   tipo_caminhao: z.string().min(1, "Tipo de caminhão obrigatório"),
   capacidade_toneladas: z.number().positive("Capacidade deve ser positiva"),
-  cidade: z.string().min(2, "Cidade obrigatória"),
-  estado: z.string().length(2, "Estado deve ter 2 letras"),
 });
 
 export async function POST(request: NextRequest) {
@@ -24,66 +21,77 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const data = caminhoneiroSchema.parse(body);
 
-    // Verificar duplicatas
-    const [emailExiste, cpfExiste] = await Promise.all([
-      prisma.user.findUnique({ where: { email: data.email } }),
-      prisma.caminhoneiro.findUnique({ where: { cpf: data.cpf } }),
-    ]);
+    const admin = createAdminClient();
 
-    if (emailExiste) {
-      return NextResponse.json({ error: "E-mail já cadastrado" }, { status: 409 });
-    }
+    const { data: cpfExiste } = await admin
+      .from("caminhoneiros")
+      .select("id")
+      .eq("cpf", data.cpf)
+      .single();
+
     if (cpfExiste) {
       return NextResponse.json({ error: "CPF já cadastrado" }, { status: 409 });
     }
 
-    const password_hash = await bcrypt.hash(data.password, 12);
+    const supabase = await createClient();
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: { data: { role: "caminhoneiro" } },
+    });
 
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        password_hash,
-        role: "caminhoneiro",
-        status: "pendente",
-        caminhoneiro: {
-          create: {
-            nome_completo: data.nome_completo,
-            cpf: data.cpf,
-            numero_cnh: data.numero_cnh,
-            categoria_cnh: data.categoria_cnh,
-            numero_antt: data.numero_antt,
-            tipo_caminhao: data.tipo_caminhao,
-            capacidade_toneladas: data.capacidade_toneladas,
-            verificado: false,
-          },
+    if (authError || !authData.user) {
+      if (authError?.message?.includes("already registered")) {
+        return NextResponse.json({ error: "E-mail já cadastrado" }, { status: 409 });
+      }
+      return NextResponse.json(
+        { error: authError?.message || "Erro ao criar conta" },
+        { status: 400 }
+      );
+    }
+
+    const { error: userError } = await admin.from("users").insert({
+      id: authData.user.id,
+      email: data.email,
+      role: "caminhoneiro",
+      status: "pendente",
+    });
+
+    if (userError) {
+      await admin.auth.admin.deleteUser(authData.user.id);
+      return NextResponse.json({ error: "Erro ao criar perfil" }, { status: 500 });
+    }
+
+    const { error: caminhoneiroError } = await admin.from("caminhoneiros").insert({
+      id: authData.user.id,
+      nome_completo: data.nome_completo,
+      cpf: data.cpf,
+      numero_cnh: data.numero_cnh,
+      categoria_cnh: data.categoria_cnh,
+      numero_antt: data.numero_antt,
+      tipo_caminhao: data.tipo_caminhao,
+      capacidade_toneladas: data.capacidade_toneladas,
+      verificado: false,
+    });
+
+    if (caminhoneiroError) {
+      await admin.auth.admin.deleteUser(authData.user.id);
+      return NextResponse.json({ error: "Erro ao criar perfil de caminhoneiro" }, { status: 500 });
+    }
+
+    await sendWelcomeEmail(data.email, data.nome_completo, "caminhoneiro");
+
+    return NextResponse.json(
+      {
+        user: {
+          id: authData.user.id,
+          email: data.email,
+          role: "caminhoneiro",
+          status: "pendente",
         },
       },
-    });
-
-    // Enviar e-mail de boas-vindas
-    await sendWelcomeEmail(user.email, data.nome_completo, "caminhoneiro");
-
-    const token = await createToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-    });
-
-    const response = NextResponse.json(
-      { user: { id: user.id, email: user.email, role: user.role, status: user.status } },
       { status: 201 }
     );
-
-    response.cookies.set("fretehub-token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
-      path: "/",
-    });
-
-    return response;
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0].message }, { status: 400 });

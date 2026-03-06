@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth";
 
 export async function GET() {
@@ -12,17 +12,14 @@ export async function GET() {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
 
-    const candidaturas = await prisma.candidatura.findMany({
-      where: { caminhoneiro_id: session.userId },
-      include: {
-        frete: {
-          include: {
-            empresa: { select: { razao_social: true } },
-          },
-        },
-      },
-      orderBy: { created_at: "desc" },
-    });
+    const admin = createAdminClient();
+    const { data: candidaturas, error } = await admin
+      .from("candidaturas")
+      .select("*, frete:fretes(*, empresa:empresas(razao_social))")
+      .eq("caminhoneiro_id", session.userId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
 
     return NextResponse.json({ candidaturas });
   } catch (error) {

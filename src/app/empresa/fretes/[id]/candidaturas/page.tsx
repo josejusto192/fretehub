@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { AceitarRecusarButtons } from "@/components/empresa/AceitarRecusarButtons";
@@ -16,22 +16,23 @@ export default async function CandidaturasPage({
   if (!session || session.role !== "empresa") redirect("/login");
 
   const { id } = await params;
+  const admin = createAdminClient();
 
-  const frete = await prisma.frete.findUnique({
-    where: { id },
-    include: {
-      candidaturas: {
-        include: {
-          caminhoneiro: {
-            include: {
-              user: { select: { email: true, status: true } },
-            },
-          },
-        },
-        orderBy: { created_at: "desc" },
-      },
-    },
-  });
+  const { data: frete } = await admin
+    .from("fretes")
+    .select(`
+      *,
+      candidaturas(
+        *,
+        caminhoneiro:caminhoneiros(
+          *,
+          user:users(email, status)
+        )
+      )
+    `)
+    .eq("id", id)
+    .order("created_at", { ascending: false, referencedTable: "candidaturas" })
+    .single();
 
   if (!frete || frete.empresa_id !== session.userId) {
     notFound();
@@ -60,7 +61,7 @@ export default async function CandidaturasPage({
         <Card className="text-center">
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-yellow-600">
-              {frete.candidaturas.filter((c) => c.status === "pendente").length}
+              {frete.candidaturas.filter((c: { status: string }) => c.status === "pendente").length}
             </div>
             <div className="text-gray-500 text-sm">Pendentes</div>
           </CardContent>
@@ -68,7 +69,7 @@ export default async function CandidaturasPage({
         <Card className="text-center">
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-green-600">
-              {frete.candidaturas.filter((c) => c.status === "aceita").length}
+              {frete.candidaturas.filter((c: { status: string }) => c.status === "aceita").length}
             </div>
             <div className="text-gray-500 text-sm">Aceitas</div>
           </CardContent>
@@ -83,59 +84,73 @@ export default async function CandidaturasPage({
           {frete.candidaturas.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <p>Nenhuma candidatura recebida ainda</p>
-              <p className="text-sm mt-1">Os caminhoneiros podem se candidatar enquanto o frete estiver aberto</p>
+              <p className="text-sm mt-1">
+                Os caminhoneiros podem se candidatar enquanto o frete estiver aberto
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {frete.candidaturas.map((candidatura) => (
-                <div
-                  key={candidatura.id}
-                  className="border rounded-lg p-4 flex items-center justify-between gap-4"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="font-semibold text-gray-900">
-                        {candidatura.caminhoneiro.nome_completo}
-                      </span>
-                      {candidatura.caminhoneiro.verificado && (
-                        <span className="text-green-600 text-xs bg-green-50 px-2 py-0.5 rounded-full">
-                          ✅ Verificado
+              {frete.candidaturas.map(
+                (candidatura: {
+                  id: string;
+                  status: string;
+                  toneladas_ofertadas: number;
+                  mensagem?: string;
+                  caminhoneiro: {
+                    nome_completo: string;
+                    verificado: boolean;
+                    tipo_caminhao: string;
+                    capacidade_toneladas: number;
+                    categoria_cnh: string;
+                    user: { email: string };
+                  };
+                }) => (
+                  <div
+                    key={candidatura.id}
+                    className="border rounded-lg p-4 flex items-center justify-between gap-4"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="font-semibold text-gray-900">
+                          {candidatura.caminhoneiro.nome_completo}
                         </span>
-                      )}
-                      <StatusBadge status={candidatura.status} />
-                    </div>
-                    <div className="text-sm text-gray-600 space-y-0.5">
-                      <p>
-                        🚛 {candidatura.caminhoneiro.tipo_caminhao} ·{" "}
-                        Capacidade: {Number(candidatura.caminhoneiro.capacidade_toneladas)}t
-                      </p>
-                      <p>
-                        📦 Toneladas ofertadas:{" "}
-                        <strong>{Number(candidatura.toneladas_ofertadas)}t</strong>
-                      </p>
-                      {frete.peso_minimo_ton && (
-                        <p className="text-xs text-gray-400">
-                          Peso mínimo do frete: {Number(frete.peso_minimo_ton)}t
+                        {candidatura.caminhoneiro.verificado && (
+                          <span className="text-green-600 text-xs bg-green-50 px-2 py-0.5 rounded-full">
+                            ✅ Verificado
+                          </span>
+                        )}
+                        <StatusBadge status={candidatura.status} />
+                      </div>
+                      <div className="text-sm text-gray-600 space-y-0.5">
+                        <p>
+                          🚛 {candidatura.caminhoneiro.tipo_caminhao} · Capacidade:{" "}
+                          {Number(candidatura.caminhoneiro.capacidade_toneladas)}t
                         </p>
-                      )}
-                      {candidatura.mensagem && (
-                        <p className="italic text-gray-500">"{candidatura.mensagem}"</p>
-                      )}
-                      <p className="text-xs text-gray-400">
-                        {candidatura.caminhoneiro.user.email} ·{" "}
-                        CNH {candidatura.caminhoneiro.categoria_cnh}
-                      </p>
+                        <p>
+                          📦 Toneladas ofertadas:{" "}
+                          <strong>{Number(candidatura.toneladas_ofertadas)}t</strong>
+                        </p>
+                        {frete.peso_minimo_ton && (
+                          <p className="text-xs text-gray-400">
+                            Peso mínimo do frete: {Number(frete.peso_minimo_ton)}t
+                          </p>
+                        )}
+                        {candidatura.mensagem && (
+                          <p className="italic text-gray-500">&quot;{candidatura.mensagem}&quot;</p>
+                        )}
+                        <p className="text-xs text-gray-400">
+                          {candidatura.caminhoneiro.user.email} · CNH{" "}
+                          {candidatura.caminhoneiro.categoria_cnh}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  {candidatura.status === "pendente" && frete.status === "aberto" && (
-                    <AceitarRecusarButtons
-                      freteId={frete.id}
-                      candidaturaId={candidatura.id}
-                    />
-                  )}
-                </div>
-              ))}
+                    {candidatura.status === "pendente" && frete.status === "aberto" && (
+                      <AceitarRecusarButtons freteId={frete.id} candidaturaId={candidatura.id} />
+                    )}
+                  </div>
+                )
+              )}
             </div>
           )}
         </CardContent>

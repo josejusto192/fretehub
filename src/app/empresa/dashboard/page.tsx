@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -11,30 +11,26 @@ export default async function EmpresaDashboard() {
   const session = await getSession();
   if (!session || session.role !== "empresa") redirect("/login");
 
-  const [fretes, empresa] = await Promise.all([
-    prisma.frete.findMany({
-      where: { empresa_id: session.userId },
-      include: {
-        _count: { select: { candidaturas: true } },
-        candidaturas: {
-          where: { status: "pendente" },
-          select: { id: true },
-        },
-      },
-      orderBy: { created_at: "desc" },
-    }),
-    prisma.empresa.findUnique({
-      where: { id: session.userId },
-      select: { razao_social: true, verificado: true },
-    }),
+  const admin = createAdminClient();
+
+  const [{ data: rawFretes }, { data: empresa }] = await Promise.all([
+    admin
+      .from("fretes")
+      .select("*, candidaturas(id, status)")
+      .eq("empresa_id", session.userId)
+      .order("created_at", { ascending: false }),
+    admin.from("empresas").select("razao_social, verificado").eq("id", session.userId).single(),
   ]);
+
+  const fretes = (rawFretes ?? []).map((f) => ({
+    ...f,
+    _count: { candidaturas: f.candidaturas.length },
+    candidaturas: f.candidaturas.filter((c: { status: string }) => c.status === "pendente"),
+  }));
 
   const totalAbertos = fretes.filter((f) => f.status === "aberto").length;
   const totalEmAndamento = fretes.filter((f) => f.status === "em_andamento").length;
-  const totalCandidaturasPendentes = fretes.reduce(
-    (acc, f) => acc + f.candidaturas.length,
-    0
-  );
+  const totalCandidaturasPendentes = fretes.reduce((acc, f) => acc + f.candidaturas.length, 0);
 
   return (
     <div>
@@ -56,7 +52,6 @@ export default async function EmpresaDashboard() {
         </Link>
       </div>
 
-      {/* Cards de resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card>
           <CardHeader className="pb-2">
@@ -88,7 +83,6 @@ export default async function EmpresaDashboard() {
         </Card>
       </div>
 
-      {/* Tabela de fretes */}
       <Card>
         <CardHeader>
           <CardTitle>Meus Fretes</CardTitle>

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -10,35 +10,37 @@ export default async function AdminDashboard() {
   const session = await getSession();
   if (!session || session.role !== "admin") redirect("/login");
 
-  const [
-    totalUsuarios,
-    empresasPendentes,
-    caminhoneirosPendentes,
-    totalFretes,
-    fretesAbertos,
-    totalCandidaturas,
-  ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { role: "empresa", status: "pendente" } }),
-    prisma.user.count({ where: { role: "caminhoneiro", status: "pendente" } }),
-    prisma.frete.count(),
-    prisma.frete.count({ where: { status: "aberto" } }),
-    prisma.candidatura.count(),
-  ]);
+  const admin = createAdminClient();
 
-  const usuariosRecentes = await prisma.user.findMany({
-    orderBy: { created_at: "desc" },
-    take: 10,
-    select: {
-      id: true,
-      email: true,
-      role: true,
-      status: true,
-      created_at: true,
-      empresa: { select: { razao_social: true } },
-      caminhoneiro: { select: { nome_completo: true } },
-    },
-  });
+  const [
+    { count: totalUsuarios },
+    { count: empresasPendentes },
+    { count: caminhoneirosPendentes },
+    { count: totalFretes },
+    { count: fretesAbertos },
+    { count: totalCandidaturas },
+    { data: usuariosRecentes },
+  ] = await Promise.all([
+    admin.from("users").select("*", { count: "exact", head: true }),
+    admin
+      .from("users")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "empresa")
+      .eq("status", "pendente"),
+    admin
+      .from("users")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "caminhoneiro")
+      .eq("status", "pendente"),
+    admin.from("fretes").select("*", { count: "exact", head: true }),
+    admin.from("fretes").select("*", { count: "exact", head: true }).eq("status", "aberto"),
+    admin.from("candidaturas").select("*", { count: "exact", head: true }),
+    admin
+      .from("users")
+      .select("id, email, role, status, created_at, empresa:empresas(razao_social), caminhoneiro:caminhoneiros(nome_completo)")
+      .order("created_at", { ascending: false })
+      .limit(10),
+  ]);
 
   return (
     <div>
@@ -49,32 +51,31 @@ export default async function AdminDashboard() {
         </Link>
       </div>
 
-      {/* Cards resumo */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-gray-500">Total de Usuários</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-900">{totalUsuarios}</div>
+            <div className="text-3xl font-bold text-blue-900">{totalUsuarios ?? 0}</div>
           </CardContent>
         </Card>
 
-        <Card className={empresasPendentes > 0 ? "border-yellow-300" : ""}>
+        <Card className={empresasPendentes ? "border-yellow-300" : ""}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-gray-500">Empresas Pendentes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-yellow-600">{empresasPendentes}</div>
+            <div className="text-3xl font-bold text-yellow-600">{empresasPendentes ?? 0}</div>
           </CardContent>
         </Card>
 
-        <Card className={caminhoneirosPendentes > 0 ? "border-yellow-300" : ""}>
+        <Card className={caminhoneirosPendentes ? "border-yellow-300" : ""}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-gray-500">Caminhoneiros Pendentes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-yellow-600">{caminhoneirosPendentes}</div>
+            <div className="text-3xl font-bold text-yellow-600">{caminhoneirosPendentes ?? 0}</div>
           </CardContent>
         </Card>
 
@@ -83,7 +84,7 @@ export default async function AdminDashboard() {
             <CardTitle className="text-sm text-gray-500">Total de Fretes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">{totalFretes}</div>
+            <div className="text-3xl font-bold text-gray-900">{totalFretes ?? 0}</div>
           </CardContent>
         </Card>
 
@@ -92,7 +93,7 @@ export default async function AdminDashboard() {
             <CardTitle className="text-sm text-gray-500">Fretes Abertos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">{fretesAbertos}</div>
+            <div className="text-3xl font-bold text-green-600">{fretesAbertos ?? 0}</div>
           </CardContent>
         </Card>
 
@@ -101,20 +102,17 @@ export default async function AdminDashboard() {
             <CardTitle className="text-sm text-gray-500">Total Candidaturas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{totalCandidaturas}</div>
+            <div className="text-3xl font-bold text-blue-600">{totalCandidaturas ?? 0}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Usuários recentes */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Usuários Recentes</CardTitle>
             <Link href="/admin/usuarios">
-              <Button variant="outline" size="sm">
-                Ver todos
-              </Button>
+              <Button variant="outline" size="sm">Ver todos</Button>
             </Link>
           </div>
         </CardHeader>
@@ -131,7 +129,8 @@ export default async function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {usuariosRecentes.map((u) => (
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {((usuariosRecentes ?? []) as any[]).map((u) => (
                   <tr key={u.id} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-2 font-medium">
                       {u.empresa?.razao_social || u.caminhoneiro?.nome_completo || "—"}

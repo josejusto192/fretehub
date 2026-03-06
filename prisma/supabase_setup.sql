@@ -10,22 +10,24 @@ CREATE TYPE "UserStatus" AS ENUM ('pendente', 'ativo', 'bloqueado');
 CREATE TYPE "FreteStatus" AS ENUM ('aberto', 'em_andamento', 'concluido', 'cancelado');
 CREATE TYPE "CandidaturaStatus" AS ENUM ('pendente', 'aceita', 'recusada', 'cancelada');
 
--- Tabela: users
+-- Tabela: users (espelha auth.users com campos extras de negócio)
+-- O ID é o mesmo UUID gerado pelo Supabase Auth
 CREATE TABLE "users" (
-    "id"            TEXT        NOT NULL DEFAULT gen_random_uuid()::TEXT,
-    "email"         TEXT        NOT NULL,
-    "password_hash" TEXT        NOT NULL,
-    "role"          "Role"      NOT NULL,
-    "status"        "UserStatus" NOT NULL DEFAULT 'pendente',
-    "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "id"         UUID        NOT NULL,
+    "email"      TEXT        NOT NULL,
+    "role"       "Role"      NOT NULL,
+    "status"     "UserStatus" NOT NULL DEFAULT 'pendente',
+    "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "users_id_fkey" FOREIGN KEY ("id")
+        REFERENCES auth.users("id") ON DELETE CASCADE
 );
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- Tabela: empresas
 CREATE TABLE "empresas" (
-    "id"           TEXT    NOT NULL,
+    "id"           UUID    NOT NULL,
     "razao_social" TEXT    NOT NULL,
     "cnpj"         TEXT    NOT NULL,
     "telefone"     TEXT    NOT NULL,
@@ -40,7 +42,7 @@ CREATE UNIQUE INDEX "empresas_cnpj_key" ON "empresas"("cnpj");
 
 -- Tabela: caminhoneiros
 CREATE TABLE "caminhoneiros" (
-    "id"                   TEXT           NOT NULL,
+    "id"                   UUID           NOT NULL,
     "nome_completo"        TEXT           NOT NULL,
     "cpf"                  TEXT           NOT NULL,
     "numero_cnh"           TEXT           NOT NULL,
@@ -58,8 +60,8 @@ CREATE UNIQUE INDEX "caminhoneiros_cpf_key" ON "caminhoneiros"("cpf");
 
 -- Tabela: fretes
 CREATE TABLE "fretes" (
-    "id"                 TEXT           NOT NULL DEFAULT gen_random_uuid()::TEXT,
-    "empresa_id"         TEXT           NOT NULL,
+    "id"                 UUID           NOT NULL DEFAULT gen_random_uuid(),
+    "empresa_id"         UUID           NOT NULL,
     "titulo"             TEXT           NOT NULL,
     "tipo_carga"         TEXT           NOT NULL,
     "origem_cidade"      TEXT           NOT NULL,
@@ -82,16 +84,16 @@ CREATE TABLE "fretes" (
 
 -- Tabela: candidaturas
 CREATE TABLE "candidaturas" (
-    "id"                  TEXT                NOT NULL DEFAULT gen_random_uuid()::TEXT,
-    "frete_id"            TEXT                NOT NULL,
-    "caminhoneiro_id"     TEXT                NOT NULL,
+    "id"                  UUID                NOT NULL DEFAULT gen_random_uuid(),
+    "frete_id"            UUID                NOT NULL,
+    "caminhoneiro_id"     UUID                NOT NULL,
     "toneladas_ofertadas" DECIMAL(10, 2)      NOT NULL,
     "mensagem"            TEXT,
     "status"              "CandidaturaStatus" NOT NULL DEFAULT 'pendente',
     "created_at"          TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
 
     CONSTRAINT "candidaturas_pkey" PRIMARY KEY ("id"),
-    CONSTRAINT "candidaturas_frete_id_caminhoneiro_id_key" UNIQUE ("frete_id", "caminhoneiro_id"),
+    CONSTRAINT "candidaturas_unique" UNIQUE ("frete_id", "caminhoneiro_id"),
     CONSTRAINT "candidaturas_frete_id_fkey" FOREIGN KEY ("frete_id")
         REFERENCES "fretes"("id"),
     CONSTRAINT "candidaturas_caminhoneiro_id_fkey" FOREIGN KEY ("caminhoneiro_id")
@@ -100,10 +102,10 @@ CREATE TABLE "candidaturas" (
 
 -- Tabela: avaliacoes
 CREATE TABLE "avaliacoes" (
-    "id"           TEXT        NOT NULL DEFAULT gen_random_uuid()::TEXT,
-    "frete_id"     TEXT        NOT NULL,
-    "avaliador_id" TEXT        NOT NULL,
-    "avaliado_id"  TEXT        NOT NULL,
+    "id"           UUID        NOT NULL DEFAULT gen_random_uuid(),
+    "frete_id"     UUID        NOT NULL,
+    "avaliador_id" UUID        NOT NULL,
+    "avaliado_id"  UUID        NOT NULL,
     "nota"         INTEGER     NOT NULL,
     "comentario"   TEXT,
     "created_at"   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -118,8 +120,17 @@ CREATE TABLE "avaliacoes" (
 );
 
 -- =============================================================
--- Usuário admin inicial (senha: Admin@123 - troque após o login)
--- Gera hash bcrypt via pgcrypto; se preferir, crie via API /api/auth/cadastro
+-- IMPORTANTE: No Supabase Dashboard → Authentication → Settings
+-- Desabilite "Enable email confirmations" para que o cadastro
+-- funcione sem precisar confirmar e-mail (ambiente de desenvolvimento).
+-- Em produção, habilite e implemente o fluxo de confirmação.
 -- =============================================================
--- INSERT INTO "users" ("email", "password_hash", "role", "status")
--- VALUES ('admin@fretehub.com', crypt('Admin@123', gen_salt('bf')), 'admin', 'ativo');
+
+-- =============================================================
+-- Criar usuário admin inicial:
+-- 1. Crie o usuário no Supabase Auth Dashboard (Authentication → Users → Invite user)
+--    ou via API com role="admin" em user_metadata
+-- 2. Depois rode este INSERT com o UUID gerado:
+-- INSERT INTO "users" ("id", "email", "role", "status")
+-- VALUES ('<UUID-do-auth>', 'admin@fretehub.com', 'admin', 'ativo');
+-- =============================================================

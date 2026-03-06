@@ -216,87 +216,173 @@ export default function LandingPage() {
       <section className="relative overflow-hidden bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800 text-white">
         {/* Background shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-white/5 rounded-full" />
-          <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-amber-400/10 rounded-full" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-700/20 rounded-full" />
+          <div className="absolute -top-60 -right-60 w-[700px] h-[700px] bg-amber-400/5 rounded-full" />
+          <div className="absolute -bottom-60 -left-60 w-[700px] h-[700px] bg-blue-700/30 rounded-full" />
+          <div className="absolute top-1/3 left-1/2 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-3xl" />
         </div>
 
-        <div className="relative container mx-auto px-4 pt-24 pb-28 text-center">
-          {/* Trust pill */}
-          <div className="inline-flex items-center gap-2 bg-blue-800/60 border border-blue-600/40 rounded-full px-4 py-1.5 text-sm text-blue-200 mb-8 backdrop-blur-sm">
-            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-            <span>Plataforma #1 de logística de grande porte no Brasil</span>
-            <span className="w-px h-4 bg-blue-600/50 mx-0.5" />
-            <span className="text-amber-400 font-semibold">+10.000 fretes/mês</span>
-          </div>
+        <div className="relative container mx-auto px-4 py-20 lg:py-28">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
 
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-[1.05] tracking-tight">
-            A plataforma que conecta
-            <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-300">
-              carga e caminhão
-            </span>
-            <br />
-            em minutos
-          </h1>
-          <p className="text-lg md:text-xl text-blue-200 mb-12 max-w-2xl mx-auto leading-relaxed">
-            Empresas publicam fretes. Caminhoneiros verificados se candidatam.
-            Você escolhe o melhor. Simples, seguro e 100% gratuito para começar.
-          </p>
-
-          {/* Dual CTA cards */}
-          <div className="flex flex-col sm:flex-row gap-5 justify-center items-center mb-14">
-            <Link href="/cadastro/empresa">
-              <div className="bg-white rounded-2xl p-6 w-72 text-left shadow-2xl hover:shadow-[0_25px_60px_rgba(0,0,0,0.25)] hover:-translate-y-1.5 transition-all cursor-pointer group border border-gray-100">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-900 to-blue-700 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
-                  <Building2 className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-blue-900 font-bold text-lg mb-1">Sou Empresa</h3>
-                <p className="text-gray-500 text-sm mb-4 leading-snug">
-                  Publique fretes e encontre os melhores caminhoneiros verificados do Brasil
-                </p>
-                <span className="inline-flex items-center gap-1.5 bg-blue-900 text-white text-sm px-4 py-2.5 rounded-xl group-hover:bg-blue-800 transition-colors font-semibold">
-                  Cadastrar empresa grátis
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </span>
+            {/* ── Left: copy ── */}
+            <div className="text-center lg:text-left">
+              {/* Trust pill */}
+              <div className="inline-flex items-center gap-2 bg-blue-800/60 border border-blue-600/40 rounded-full px-4 py-1.5 text-sm text-blue-200 mb-8 backdrop-blur-sm">
+                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                <span>Plataforma #1 de logística de grande porte</span>
+                <span className="hidden sm:inline w-px h-4 bg-blue-600/50 mx-0.5" />
+                <span className="hidden sm:inline text-amber-400 font-semibold shrink-0">+10k fretes/mês</span>
               </div>
-            </Link>
 
-            <Link href="/cadastro/caminhoneiro">
-              <div className="bg-gradient-to-br from-amber-400 to-amber-500 rounded-2xl p-6 w-72 text-left shadow-2xl hover:shadow-[0_25px_60px_rgba(245,158,11,0.35)] hover:-translate-y-1.5 transition-all cursor-pointer group">
-                <div className="w-12 h-12 bg-blue-900 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
-                  <Truck className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-blue-900 font-bold text-lg mb-1">Sou Caminhoneiro</h3>
-                <p className="text-blue-900/70 text-sm mb-4 leading-snug">
-                  Encontre fretes perto de você e aumente seu faturamento mensal
-                </p>
-                <span className="inline-flex items-center gap-1.5 bg-blue-900 text-white text-sm px-4 py-2.5 rounded-xl group-hover:bg-blue-800 transition-colors font-semibold">
-                  Cadastrar grátis
-                  <ArrowRight className="w-3.5 h-3.5" />
+              <h1 className="text-5xl md:text-6xl xl:text-7xl font-extrabold mb-6 leading-[1.04] tracking-tight">
+                Conecte carga
+                <br />e caminhão em
+                <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-300">
+                  minutos
                 </span>
-              </div>
-            </Link>
-          </div>
+              </h1>
 
-          {/* Social trust indicators */}
-          <div className="flex flex-wrap justify-center gap-6 text-sm text-blue-300">
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-green-400" />
-              Cadastro 100% gratuito
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-green-400" />
-              Sem mensalidade
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-green-400" />
-              Verificação de documentos
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-green-400" />
-              Cobertura nacional
-            </span>
+              <p className="text-lg text-blue-200 mb-10 leading-relaxed max-w-lg mx-auto lg:mx-0">
+                Empresas publicam fretes. Caminhoneiros verificados se candidatam.
+                Você escolhe o melhor — simples, seguro e 100% gratuito.
+              </p>
+
+              {/* CTA buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-10">
+                <Link href="/cadastro/empresa">
+                  <Button className="bg-white text-blue-900 hover:bg-blue-50 font-bold text-base px-8 h-12 rounded-xl shadow-lg hover:shadow-xl transition-all w-full sm:w-auto">
+                    <Building2 className="w-5 h-5 mr-2" />
+                    Sou Empresa
+                    <ArrowRight className="w-4 h-4 ml-2 opacity-60" />
+                  </Button>
+                </Link>
+                <Link href="/cadastro/caminhoneiro">
+                  <Button className="bg-amber-400 hover:bg-amber-300 text-blue-900 font-bold text-base px-8 h-12 rounded-xl shadow-lg hover:shadow-xl transition-all w-full sm:w-auto">
+                    <Truck className="w-5 h-5 mr-2" />
+                    Sou Caminhoneiro
+                    <ArrowRight className="w-4 h-4 ml-2 opacity-60" />
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Trust indicators */}
+              <div className="flex flex-wrap justify-center lg:justify-start gap-x-6 gap-y-2 text-sm text-blue-300">
+                {[
+                  "Cadastro 100% gratuito",
+                  "Sem mensalidade",
+                  "Motoristas verificados",
+                  "Cobertura nacional",
+                ].map((txt) => (
+                  <span key={txt} className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
+                    {txt}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Right: product mockup ── */}
+            <div className="hidden lg:block relative">
+              {/* Notification badge */}
+              <div className="absolute -top-5 right-6 z-20 bg-white rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-3">
+                <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center shrink-0">
+                  <Users className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-900">8 novas candidaturas</p>
+                  <p className="text-xs text-gray-400">há 2 minutos · Frete SP → MT</p>
+                </div>
+                <span className="w-2 h-2 bg-green-500 rounded-full shrink-0 animate-pulse" />
+              </div>
+
+              {/* Main freight card */}
+              <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-white/10">
+                {/* Card header */}
+                <div className="bg-gradient-to-r from-blue-900 to-blue-700 px-6 pt-6 pb-5 text-white">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-semibold text-blue-300 uppercase tracking-wide">Frete disponível</span>
+                    <span className="ml-auto bg-green-500/20 text-green-300 border border-green-500/30 text-xs font-bold rounded-full px-2.5 py-0.5">Aberto</span>
+                  </div>
+                  <h3 className="font-extrabold text-xl mb-1">Transporte de Soja a Granel</h3>
+                  <div className="flex items-center gap-1.5 text-blue-300 text-sm">
+                    <Building2 className="w-3.5 h-3.5" />
+                    AgroTransp Soluções
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400 ml-1" />
+                    <span className="text-green-400 font-medium text-xs">Verificada</span>
+                  </div>
+                </div>
+
+                {/* Route visualization */}
+                <div className="p-6">
+                  <div className="flex items-stretch gap-4 mb-5">
+                    {/* Timeline */}
+                    <div className="flex flex-col items-center gap-0 pt-1 pb-1">
+                      <div className="w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-md shrink-0" />
+                      <div className="flex-1 w-px border-l-2 border-dashed border-gray-200 my-1" />
+                      <div className="w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white shadow-md shrink-0" />
+                    </div>
+                    {/* Cities */}
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        <p className="text-xs text-gray-400 font-medium">Origem</p>
+                        <p className="font-bold text-gray-900 text-base">São Paulo, SP</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 font-medium">Destino</p>
+                        <p className="font-bold text-gray-900 text-base">Rondonópolis, MT</p>
+                      </div>
+                    </div>
+                    {/* Distance badge */}
+                    <div className="bg-blue-50 rounded-2xl px-4 py-3 text-center self-center border border-blue-100">
+                      <p className="text-xs text-blue-600 font-semibold mb-0.5">Via estradas</p>
+                      <p className="text-2xl font-extrabold text-blue-900">1.840</p>
+                      <p className="text-xs text-blue-500 font-medium">km</p>
+                    </div>
+                  </div>
+
+                  {/* Details grid */}
+                  <div className="grid grid-cols-3 gap-2.5 mb-5">
+                    <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
+                      <p className="text-xs text-gray-500 mb-0.5">Carga</p>
+                      <p className="text-base font-extrabold text-gray-900">28t</p>
+                    </div>
+                    <div className="bg-green-50 rounded-xl p-3 text-center border border-green-100">
+                      <p className="text-xs text-green-600 mb-0.5">R$/ton</p>
+                      <p className="text-base font-extrabold text-green-700">R$ 185</p>
+                    </div>
+                    <div className="bg-amber-50 rounded-xl p-3 text-center border border-amber-100">
+                      <p className="text-xs text-amber-600 mb-0.5">Coleta</p>
+                      <p className="text-base font-extrabold text-amber-700">15/03</p>
+                    </div>
+                  </div>
+
+                  {/* Candidaturas bar */}
+                  <div className="flex items-center justify-between bg-blue-900 rounded-xl px-4 py-3 text-white">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-blue-300" />
+                      <span className="text-sm font-semibold">8 candidaturas recebidas</span>
+                    </div>
+                    <span className="text-amber-400 font-bold text-sm flex items-center gap-1">
+                      Ver todas
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom micro-stats */}
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/10">
+                  <div className="text-2xl font-extrabold text-amber-400">5.000+</div>
+                  <div className="text-xs text-blue-300 mt-0.5 font-medium">Motoristas ativos</div>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/10">
+                  <div className="text-2xl font-extrabold text-amber-400">&lt; 24h</div>
+                  <div className="text-xs text-blue-300 mt-0.5 font-medium">1ª candidatura</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

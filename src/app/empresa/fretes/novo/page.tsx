@@ -22,6 +22,7 @@ import {
 import { TIPOS_CARGA } from "@/lib/constants";
 import CitySearchInput from "@/components/shared/CitySearchInput";
 import { calcularDistancia } from "@/components/shared/RouteMap";
+// calcularDistancia used as initial fallback before OSRM route is calculated
 
 // Dynamic import to avoid SSR issues with Leaflet
 const RouteMap = dynamic(() => import("@/components/shared/RouteMap"), {
@@ -227,6 +228,7 @@ export default function NovoFretePage() {
                 origin={origemCoord}
                 destination={destinoCoord}
                 distanciaKm={distanciaKm}
+                onRouteCalculated={(km) => setDistanciaKm(km)}
               />
             )}
 

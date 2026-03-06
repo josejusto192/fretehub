@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  empresa
+  caminhoneiro
+  admin
+}
+
+enum UserStatus {
+  pendente
+  ativo
+  bloqueado
+}
+
+enum FreteStatus {
+  aberto
+  em_andamento
+  concluido
+  cancelado
+}
+
+enum CandidaturaStatus {
+  pendente
+  aceita
+  recusada
+  cancelada
+}
+
+model User {
+  id            String     @id @default(uuid())
+  email         String     @unique
+  password_hash String
+  role          Role
+  status        UserStatus @default(pendente)
+  created_at    DateTime   @default(now())
+
+  empresa              Empresa?
+  caminhoneiro         Caminhoneiro?
+  avaliacoes_feitas    Avaliacao[] @relation("avaliador")
+  avaliacoes_recebidas Avaliacao[] @relation("avaliado")
+
+  @@map("users")
+}
+
+model Empresa {
+  id           String  @id
+  razao_social String
+  cnpj         String  @unique
+  telefone     String
+  endereco     Json
+  verificado   Boolean @default(false)
+
+  user   User    @relation(fields: [id], references: [id], onDelete: Cascade)
+  fretes Frete[]
+
+  @@map("empresas")
+}
+
+model Caminhoneiro {
+  id                   String  @id
+  nome_completo        String
+  cpf                  String  @unique
+  numero_cnh           String
+  categoria_cnh        String
+  numero_antt          String
+  tipo_caminhao        String
+  capacidade_toneladas Decimal @db.Decimal(10, 2)
+  verificado           Boolean @default(false)
+
+  user         User          @relation(fields: [id], references: [id], onDelete: Cascade)
+  candidaturas Candidatura[]
+
+  @@map("caminhoneiros")
+}
+
+model Frete {
+  id                 String      @id @default(uuid())
+  empresa_id         String
+  titulo             String
+  tipo_carga         String
+  origem_cidade      String
+  origem_estado      String
+  destino_cidade     String
+  destino_estado     String
+  peso_total_ton     Decimal     @db.Decimal(10, 2)
+  peso_minimo_ton    Decimal?    @db.Decimal(10, 2)
+  valor_por_tonelada Decimal     @db.Decimal(10, 2)
+  data_coleta        DateTime
+  prazo_entrega      DateTime
+  status             FreteStatus @default(aberto)
+  observacoes        String?
+  created_at         DateTime    @default(now())
+
+  empresa      Empresa       @relation(fields: [empresa_id], references: [id])
+  candidaturas Candidatura[]
+  avaliacoes   Avaliacao[]
+
+  @@map("fretes")
+}
+
+model Candidatura {
+  id                  String            @id @default(uuid())
+  frete_id            String
+  caminhoneiro_id     String
+  toneladas_ofertadas Decimal           @db.Decimal(10, 2)
+  mensagem            String?
+  status              CandidaturaStatus @default(pendente)
+  created_at          DateTime          @default(now())
+
+  frete        Frete        @relation(fields: [frete_id], references: [id])
+  caminhoneiro Caminhoneiro @relation(fields: [caminhoneiro_id], references: [id])
+
+  @@unique([frete_id, caminhoneiro_id])
+  @@map("candidaturas")
+}
+
+model Avaliacao {
+  id           String   @id @default(uuid())
+  frete_id     String
+  avaliador_id String
+  avaliado_id  String
+  nota         Int
+  comentario   String?
+  created_at   DateTime @default(now())
+
+  frete     Frete @relation(fields: [frete_id], references: [id])
+  avaliador User  @relation("avaliador", fields: [avaliador_id], references: [id])
+  avaliado  User  @relation("avaliado", fields: [avaliado_id], references: [id])
+
+  @@map("avaliacoes")
+}

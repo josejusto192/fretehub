@@ -23,7 +23,6 @@ import {
   Award,
   HeadphonesIcon,
   Clock,
-  DollarSign,
   Users,
   Package,
   CheckCircle2,

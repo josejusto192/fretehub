@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 const publicRoutes = ["/", "/login", "/cadastro/empresa", "/cadastro/caminhoneiro"];
@@ -63,7 +64,24 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  const role = user.user_metadata?.role as string;
+  // Busca role da tabela users (fonte de verdade), não do user_metadata
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  const { data: profile } = await admin
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const role = profile?.role as string;
+
+  if (!role) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
 
   for (const [routeRole, routePrefix] of Object.entries(roleRoutes)) {
     if (pathname.startsWith(routePrefix)) {

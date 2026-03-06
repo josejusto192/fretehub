@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 
 export default async function EmpresaDashboard() {
   const session = await getSession();
-  if (!session || session.role !== "empresa") redirect("/login");
+  if (!session || session.role !== "empresa" && session.role !== "admin") redirect("/login");
 
   const admin = createAdminClient();
 

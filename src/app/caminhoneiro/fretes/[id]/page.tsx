@@ -14,7 +14,7 @@ export default async function FreteDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const session = await getSession();
-  if (!session || session.role !== "caminhoneiro") redirect("/login");
+  if (!session || session.role !== "caminhoneiro" && session.role !== "admin") redirect("/login");
 
   const { id } = await params;
   const admin = createAdminClient();

@@ -59,7 +59,7 @@ export async function POST(
     if (!session) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
-    if (session.role !== "caminhoneiro") {
+    if (session.role !== "caminhoneiro" && session.role !== "admin") {
       return NextResponse.json(
         { error: "Apenas caminhoneiros podem se candidatar" },
         { status: 403 }

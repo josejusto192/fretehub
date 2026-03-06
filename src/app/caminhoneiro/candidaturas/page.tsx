@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 
 export default async function MeusCandidaturasPage() {
   const session = await getSession();
-  if (!session || session.role !== "caminhoneiro") redirect("/login");
+  if (!session || session.role !== "caminhoneiro" && session.role !== "admin") redirect("/login");
 
   const admin = createAdminClient();
   const { data: candidaturas } = await admin

@@ -19,7 +19,7 @@ export default async function CaminhoneiroDashboard({
   searchParams: Promise<SearchParams>;
 }) {
   const session = await getSession();
-  if (!session || session.role !== "caminhoneiro") redirect("/login");
+  if (!session || session.role !== "caminhoneiro" && session.role !== "admin") redirect("/login");
 
   const params = await searchParams;
   const admin = createAdminClient();

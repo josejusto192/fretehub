@@ -13,7 +13,7 @@ export default async function CandidaturasPage({
   params: Promise<{ id: string }>;
 }) {
   const session = await getSession();
-  if (!session || session.role !== "empresa") redirect("/login");
+  if (!session || session.role !== "empresa" && session.role !== "admin") redirect("/login");
 
   const { id } = await params;
   const admin = createAdminClient();

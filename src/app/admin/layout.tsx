@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { Navbar } from "@/components/shared/Navbar";
+import { Sidebar } from "@/components/shared/Sidebar";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -11,9 +11,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar role="admin" email={session.email} name="Admin" />
-      <main className="container mx-auto px-4 py-8">{children}</main>
+    <div className="min-h-screen bg-[#f4f6fb]">
+      <Sidebar role="admin" email={session.email} name="Admin" />
+      <div className="lg:ml-64 pt-14 lg:pt-0">
+        <main className="p-6 max-w-5xl mx-auto">{children}</main>
+      </div>
     </div>
   );
 }

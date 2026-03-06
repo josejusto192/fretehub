@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,9 +14,15 @@ import {
   Truck,
   Building2,
   Star,
+  Menu,
+  X,
+  Phone,
+  MapPin,
 } from "lucide-react";
 
 export default function LandingPage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -27,7 +36,9 @@ export default function LandingPage() {
               Frete<span className="text-amber-500">Hub</span>
             </span>
           </div>
-          <nav className="flex items-center gap-3">
+
+          {/* Desktop nav */}
+          <nav className="hidden sm:flex items-center gap-3">
             <Link href="/login">
               <Button variant="ghost" className="text-gray-600 hover:text-blue-900">Entrar</Button>
             </Link>
@@ -37,7 +48,39 @@ export default function LandingPage() {
               </Button>
             </Link>
           </nav>
+
+          {/* Mobile hamburger */}
+          <button
+            className="sm:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Menu"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
+
+        {/* Mobile menu */}
+        {mobileMenuOpen && (
+          <div className="sm:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-2">
+            <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+              <Button variant="ghost" className="w-full justify-start text-gray-700">
+                Entrar na plataforma
+              </Button>
+            </Link>
+            <Link href="/cadastro/empresa" onClick={() => setMobileMenuOpen(false)}>
+              <Button className="w-full bg-blue-900 hover:bg-blue-800">
+                <Building2 className="w-4 h-4 mr-2" />
+                Cadastrar empresa
+              </Button>
+            </Link>
+            <Link href="/cadastro/caminhoneiro" onClick={() => setMobileMenuOpen(false)}>
+              <Button variant="outline" className="w-full border-amber-300 text-amber-700 hover:bg-amber-50">
+                <Truck className="w-4 h-4 mr-2" />
+                Cadastrar como caminhoneiro
+              </Button>
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* Hero */}
@@ -299,22 +342,73 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-950 text-gray-500 py-10">
-        <div className="container mx-auto px-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-700 to-blue-500 rounded-lg flex items-center justify-center">
-              <Truck className="w-4 h-4 text-white" />
+      <footer className="bg-gray-950 text-gray-400 py-14">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-10">
+            {/* Brand */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-700 to-blue-500 rounded-lg flex items-center justify-center">
+                  <Truck className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-white font-bold text-lg">
+                  Frete<span className="text-amber-500">Hub</span>
+                </span>
+              </div>
+              <p className="text-sm leading-relaxed text-gray-500">
+                Plataforma de marketplace logístico para fretes de grande porte no Brasil.
+                Conectando empresas e caminhoneiros com segurança e transparência.
+              </p>
             </div>
-            <span className="text-white font-bold text-lg">
-              Frete<span className="text-amber-500">Hub</span>
-            </span>
+
+            {/* Links */}
+            <div>
+              <h4 className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Plataforma</h4>
+              <ul className="space-y-2.5 text-sm">
+                <li>
+                  <Link href="/cadastro/empresa" className="hover:text-white transition-colors flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5" />
+                    Cadastrar empresa
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/cadastro/caminhoneiro" className="hover:text-white transition-colors flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5" />
+                    Cadastrar caminhoneiro
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/login" className="hover:text-white transition-colors flex items-center gap-1.5">
+                    <ArrowRight className="w-3.5 h-3.5" />
+                    Entrar na plataforma
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h4 className="text-white font-semibold text-sm mb-4 uppercase tracking-wider">Contato</h4>
+              <ul className="space-y-2.5 text-sm">
+                <li className="flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-gray-500" />
+                  contato@fretehub.com.br
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-gray-500" />
+                  (11) 9 9999-9999
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-gray-500" />
+                  São Paulo, SP – Brasil
+                </li>
+              </ul>
+            </div>
           </div>
-          <p className="text-sm">
+
+          <div className="border-t border-gray-800 pt-8 text-center text-xs text-gray-600">
             © {new Date().getFullYear()} FreteHub. Todos os direitos reservados.
-          </p>
-          <p className="text-xs mt-2 text-gray-600">
-            Plataforma de marketplace logístico para fretes de grande porte no Brasil.
-          </p>
+          </div>
         </div>
       </footer>
     </div>

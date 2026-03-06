@@ -4,8 +4,18 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import {
+  PlusCircle,
+  Package,
+  Loader2,
+  Users,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  MapPin,
+  Calendar,
+} from "lucide-react";
 
 export default async function EmpresaDashboard() {
   const session = await getSession();
@@ -33,119 +43,134 @@ export default async function EmpresaDashboard() {
   const totalCandidaturasPendentes = fretes.reduce((acc, f) => acc + f.candidaturas.length, 0);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-8">
+    <div className="space-y-8">
+      {/* Page header */}
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Dashboard — {empresa?.razao_social}
+          <h1 className="text-2xl font-extrabold text-gray-900">
+            {empresa?.razao_social}
           </h1>
-          <p className="text-gray-500 mt-1">
+          <div className="flex items-center gap-2 mt-1.5">
             {empresa?.verificado ? (
-              <span className="text-green-600 font-medium">✅ Empresa verificada</span>
+              <span className="inline-flex items-center gap-1.5 text-sm text-green-700 bg-green-50 border border-green-200 rounded-full px-3 py-0.5 font-medium">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Empresa verificada
+              </span>
             ) : (
-              <span className="text-yellow-600 font-medium">⏳ Verificação pendente</span>
+              <span className="inline-flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-0.5 font-medium">
+                <Clock className="w-3.5 h-3.5" />
+                Verificação pendente
+              </span>
             )}
-          </p>
+          </div>
         </div>
         <Link href="/empresa/fretes/novo">
-          <Button className="bg-blue-900 hover:bg-blue-800">+ Publicar novo frete</Button>
+          <Button className="bg-blue-900 hover:bg-blue-800 shadow-sm font-semibold">
+            <PlusCircle className="w-4 h-4 mr-2" />
+            Publicar novo frete
+          </Button>
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Fretes Abertos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-900">{totalAbertos}</div>
-          </CardContent>
-        </Card>
+      {/* Stats cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-900 to-blue-700 p-6 text-white shadow-lg">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-8 translate-x-8" />
+          <Package className="w-8 h-8 text-blue-300 mb-3" />
+          <div className="text-4xl font-extrabold">{totalAbertos}</div>
+          <div className="text-blue-200 text-sm font-medium mt-1">Fretes Abertos</div>
+        </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Em Andamento</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-orange-500">{totalEmAndamento}</div>
-          </CardContent>
-        </Card>
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 to-amber-400 p-6 text-white shadow-lg">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+          <Loader2 className="w-8 h-8 text-amber-100 mb-3" />
+          <div className="text-4xl font-extrabold">{totalEmAndamento}</div>
+          <div className="text-amber-100 text-sm font-medium mt-1">Em Andamento</div>
+        </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              Candidaturas Pendentes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-yellow-600">{totalCandidaturasPendentes}</div>
-          </CardContent>
-        </Card>
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-700 to-purple-500 p-6 text-white shadow-lg">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-8 translate-x-8" />
+          <Users className="w-8 h-8 text-purple-300 mb-3" />
+          <div className="text-4xl font-extrabold">{totalCandidaturasPendentes}</div>
+          <div className="text-purple-200 text-sm font-medium mt-1">Candidaturas Pendentes</div>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Meus Fretes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {fretes.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <p className="text-lg">Nenhum frete publicado ainda</p>
-              <Link href="/empresa/fretes/novo" className="mt-4 inline-block">
-                <Button className="bg-blue-900 hover:bg-blue-800">Publicar primeiro frete</Button>
-              </Link>
+      {/* Freight list */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="font-bold text-gray-900 text-lg">Meus Fretes</h2>
+          <span className="text-sm text-gray-400">{fretes.length} publicado{fretes.length !== 1 ? "s" : ""}</span>
+        </div>
+
+        {fretes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-4">
+              <Package className="w-8 h-8 text-blue-400" />
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-gray-500">
-                    <th className="text-left py-3 px-2">Título</th>
-                    <th className="text-left py-3 px-2">Rota</th>
-                    <th className="text-left py-3 px-2">Status</th>
-                    <th className="text-left py-3 px-2">Candidaturas</th>
-                    <th className="text-left py-3 px-2">Coleta</th>
-                    <th className="text-left py-3 px-2">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fretes.map((frete) => (
-                    <tr key={frete.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-2 font-medium">{frete.titulo}</td>
-                      <td className="py-3 px-2 text-gray-600">
-                        {frete.origem_cidade}/{frete.origem_estado} →{" "}
+            <h3 className="font-bold text-gray-900 text-lg mb-1">Nenhum frete publicado</h3>
+            <p className="text-gray-500 text-sm mb-6 max-w-xs">
+              Publique seu primeiro frete e comece a receber candidaturas de caminhoneiros verificados.
+            </p>
+            <Link href="/empresa/fretes/novo">
+              <Button className="bg-blue-900 hover:bg-blue-800">
+                <PlusCircle className="w-4 h-4 mr-2" />
+                Publicar primeiro frete
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {fretes.map((frete) => (
+              <div
+                key={frete.id}
+                className="px-6 py-4 hover:bg-gray-50/80 transition-colors group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-1.5">
+                      <h3 className="font-semibold text-gray-900 truncate">{frete.titulo}</h3>
+                      <StatusBadge status={frete.status} />
+                      {frete.candidaturas.length > 0 && (
+                        <span className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                          <Clock className="w-3 h-3" />
+                          {frete.candidaturas.length} pendente{frete.candidaturas.length > 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <span className="flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                        {frete.origem_cidade}/{frete.origem_estado}
+                        <span className="text-gray-300 mx-0.5">→</span>
                         {frete.destino_cidade}/{frete.destino_estado}
-                      </td>
-                      <td className="py-3 px-2">
-                        <StatusBadge status={frete.status} />
-                      </td>
-                      <td className="py-3 px-2">
-                        <span className="font-medium">{frete._count.candidaturas}</span>
-                        {frete.candidaturas.length > 0 && (
-                          <span className="ml-1 text-yellow-600 text-xs font-medium">
-                            ({frete.candidaturas.length} pendente
-                            {frete.candidaturas.length > 1 ? "s" : ""})
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-2 text-gray-600">
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
                         {new Date(frete.data_coleta).toLocaleDateString("pt-BR")}
-                      </td>
-                      <td className="py-3 px-2">
-                        <Link href={`/empresa/fretes/${frete.id}/candidaturas`}>
-                          <Button variant="outline" size="sm">
-                            Ver candidaturas
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-gray-400" />
+                        {frete._count.candidaturas} candidatura{frete._count.candidaturas !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  </div>
+                  <Link href={`/empresa/fretes/${frete.id}/candidaturas`}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 group-hover:border-blue-300 group-hover:text-blue-700 transition-colors"
+                    >
+                      Ver candidaturas
+                      <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

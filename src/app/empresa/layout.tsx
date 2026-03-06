@@ -21,9 +21,9 @@ export default async function EmpresaLayout({ children }: { children: React.Reac
     .single();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f7f8fc]">
       <Navbar role="empresa" email={session.email} name={empresa?.razao_social} />
-      <main className="container mx-auto px-4 py-8">{children}</main>
+      <main className="container mx-auto px-4 py-8 max-w-6xl">{children}</main>
     </div>
   );
 }

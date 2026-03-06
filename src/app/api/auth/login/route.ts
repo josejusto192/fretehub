@@ -17,7 +17,10 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !data.user) {
-      return NextResponse.json({ error: "Credenciais inválidas" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Credenciais inválidas", detail: error?.message, code: error?.code },
+        { status: 401 }
+      );
     }
 
     const admin = createAdminClient();

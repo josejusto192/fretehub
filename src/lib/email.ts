@@ -1,6 +1,8 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 const FROM = process.env.RESEND_FROM_EMAIL || "noreply@fretehub.com.br";
 
 export async function sendWelcomeEmail(
@@ -45,7 +47,7 @@ export async function sendWelcomeEmail(
   `;
 
   try {
-    await resend.emails.send({ from: FROM, to, subject, html });
+    await getResend().emails.send({ from: FROM, to, subject, html });
   } catch (error) {
     console.error("Erro ao enviar email de boas-vindas:", error);
   }
@@ -99,7 +101,7 @@ export async function sendCandidaturaAceitaEmail(
   `;
 
   try {
-    await resend.emails.send({ from: FROM, to, subject, html });
+    await getResend().emails.send({ from: FROM, to, subject, html });
   } catch (error) {
     console.error("Erro ao enviar email de candidatura aceita:", error);
   }
@@ -143,7 +145,7 @@ export async function sendCandidaturaRecusadaEmail(
   `;
 
   try {
-    await resend.emails.send({ from: FROM, to, subject, html });
+    await getResend().emails.send({ from: FROM, to, subject, html });
   } catch (error) {
     console.error("Erro ao enviar email de candidatura recusada:", error);
   }

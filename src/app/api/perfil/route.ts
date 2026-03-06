@@ -38,21 +38,68 @@ export async function PATCH(request: NextRequest) {
     const admin = createAdminClient();
 
     if (session.role === "empresa") {
-      const { razao_social, telefone, cidade, estado } = body;
-      const updates: Record<string, unknown> = {};
-      if (razao_social) updates.razao_social = razao_social;
-      if (telefone) updates.telefone = telefone;
-      if (cidade || estado) updates.endereco = { cidade, estado };
+      const {
+        razao_social,
+        nome_fantasia,
+        telefone,
+        site,
+        descricao,
+        numero_funcionarios,
+        cidade,
+        estado,
+      } = body;
 
-      await admin.from("empresas").update(updates).eq("id", session.userId);
+      const updates: Record<string, unknown> = {};
+      if (razao_social !== undefined) updates.razao_social = razao_social;
+      if (nome_fantasia !== undefined) updates.nome_fantasia = nome_fantasia;
+      if (telefone !== undefined) updates.telefone = telefone;
+      if (site !== undefined) updates.site = site;
+      if (descricao !== undefined) updates.descricao = descricao;
+      if (numero_funcionarios !== undefined) updates.numero_funcionarios = numero_funcionarios;
+      if (cidade !== undefined || estado !== undefined) {
+        updates.endereco = { cidade: cidade ?? "", estado: estado ?? "" };
+      }
+
+      const { error } = await admin
+        .from("empresas")
+        .update(updates)
+        .eq("id", session.userId);
+
+      if (error) throw error;
     } else if (session.role === "caminhoneiro") {
-      const { nome_completo, tipo_caminhao, capacidade_toneladas } = body;
-      const updates: Record<string, unknown> = {};
-      if (nome_completo) updates.nome_completo = nome_completo;
-      if (tipo_caminhao) updates.tipo_caminhao = tipo_caminhao;
-      if (capacidade_toneladas) updates.capacidade_toneladas = capacidade_toneladas;
+      const {
+        nome_completo,
+        telefone,
+        cidade,
+        estado,
+        tipo_caminhao,
+        capacidade_toneladas,
+        experiencia_anos,
+        descricao,
+        possui_rastreador,
+        possui_seguro,
+        areas_atendimento,
+      } = body;
 
-      await admin.from("caminhoneiros").update(updates).eq("id", session.userId);
+      const updates: Record<string, unknown> = {};
+      if (nome_completo !== undefined) updates.nome_completo = nome_completo;
+      if (telefone !== undefined) updates.telefone = telefone;
+      if (cidade !== undefined) updates.cidade = cidade;
+      if (estado !== undefined) updates.estado = estado;
+      if (tipo_caminhao !== undefined) updates.tipo_caminhao = tipo_caminhao;
+      if (capacidade_toneladas !== undefined) updates.capacidade_toneladas = capacidade_toneladas;
+      if (experiencia_anos !== undefined) updates.experiencia_anos = experiencia_anos;
+      if (descricao !== undefined) updates.descricao = descricao;
+      if (possui_rastreador !== undefined) updates.possui_rastreador = possui_rastreador;
+      if (possui_seguro !== undefined) updates.possui_seguro = possui_seguro;
+      if (areas_atendimento !== undefined) updates.areas_atendimento = areas_atendimento;
+
+      const { error } = await admin
+        .from("caminhoneiros")
+        .update(updates)
+        .eq("id", session.userId);
+
+      if (error) throw error;
     }
 
     const { data: user } = await admin

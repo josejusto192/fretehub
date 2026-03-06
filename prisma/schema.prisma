@@ -51,12 +51,16 @@ model User {
 }
 
 model Empresa {
-  id           String  @id
-  razao_social String
-  cnpj         String  @unique
-  telefone     String
-  endereco     Json
-  verificado   Boolean @default(false)
+  id                  String  @id
+  razao_social        String
+  nome_fantasia       String?
+  cnpj                String  @unique
+  telefone            String
+  endereco            Json
+  site                String?
+  descricao           String?
+  numero_funcionarios Int?
+  verificado          Boolean @default(false)
 
   user   User    @relation(fields: [id], references: [id], onDelete: Cascade)
   fretes Frete[]
@@ -65,15 +69,23 @@ model Empresa {
 }
 
 model Caminhoneiro {
-  id                   String  @id
+  id                   String   @id
   nome_completo        String
-  cpf                  String  @unique
+  cpf                  String   @unique
   numero_cnh           String
   categoria_cnh        String
   numero_antt          String
   tipo_caminhao        String
-  capacidade_toneladas Decimal @db.Decimal(10, 2)
-  verificado           Boolean @default(false)
+  capacidade_toneladas Decimal  @db.Decimal(10, 2)
+  verificado           Boolean  @default(false)
+  telefone             String?
+  cidade               String?
+  estado               String?
+  experiencia_anos     Int?
+  descricao            String?
+  possui_rastreador    Boolean  @default(false)
+  possui_seguro        Boolean  @default(false)
+  areas_atendimento    String[]
 
   user         User          @relation(fields: [id], references: [id], onDelete: Cascade)
   candidaturas Candidatura[]
@@ -97,6 +109,11 @@ model Frete {
   prazo_entrega      DateTime
   status             FreteStatus @default(aberto)
   observacoes        String?
+  distancia_km       Int?
+  origem_lat         Float?
+  origem_lng         Float?
+  destino_lat        Float?
+  destino_lng        Float?
   created_at         DateTime    @default(now())
 
   empresa      Empresa       @relation(fields: [empresa_id], references: [id])

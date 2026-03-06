@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ESTADOS_BRASILEIROS, TIPOS_CARGA } from "@/lib/constants";
+import { TIPOS_CARGA } from "@/lib/constants";
+import CitySearchInput from "@/components/shared/CitySearchInput";
+import { calcularDistancia } from "@/components/shared/RouteMap";
+
+// Dynamic import to avoid SSR issues with Leaflet
+const RouteMap = dynamic(() => import("@/components/shared/RouteMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[300px] bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-sm">
+      Carregando mapa...
+    </div>
+  ),
+});
 
 const freteSchema = z.object({
   titulo: z.string().min(3, "Título obrigatório"),
@@ -37,9 +50,20 @@ const freteSchema = z.object({
 
 type FreteForm = z.infer<typeof freteSchema>;
 
+interface CityCoord {
+  lat: number;
+  lng: number;
+  label: string;
+}
+
 export default function NovoFretePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [origemCoord, setOrigemCoord] = useState<CityCoord | null>(null);
+  const [destinoCoord, setDestinoCoord] = useState<CityCoord | null>(null);
+  const [distanciaKm, setDistanciaKm] = useState<number | null>(null);
+  const [origemDisplay, setOrigemDisplay] = useState("");
+  const [destinoDisplay, setDestinoDisplay] = useState("");
 
   const {
     register,
@@ -47,6 +71,19 @@ export default function NovoFretePage() {
     setValue,
     formState: { errors },
   } = useForm<FreteForm>({ resolver: zodResolver(freteSchema) });
+
+  // Recalculate distance whenever both coords are set
+  useEffect(() => {
+    if (origemCoord && destinoCoord) {
+      const dist = calcularDistancia(
+        origemCoord.lat, origemCoord.lng,
+        destinoCoord.lat, destinoCoord.lng
+      );
+      setDistanciaKm(dist);
+    } else {
+      setDistanciaKm(null);
+    }
+  }, [origemCoord, destinoCoord]);
 
   const onSubmit = async (data: FreteForm) => {
     setLoading(true);
@@ -56,6 +93,11 @@ export default function NovoFretePage() {
         peso_total_ton: Number(data.peso_total_ton),
         peso_minimo_ton: data.peso_minimo_ton ? Number(data.peso_minimo_ton) : null,
         valor_por_tonelada: Number(data.valor_por_tonelada),
+        distancia_km: distanciaKm ?? null,
+        origem_lat: origemCoord?.lat ?? null,
+        origem_lng: origemCoord?.lng ?? null,
+        destino_lat: destinoCoord?.lat ?? null,
+        destino_lng: destinoCoord?.lng ?? null,
       };
       const res = await fetch("/api/fretes", {
         method: "POST",
@@ -80,18 +122,18 @@ export default function NovoFretePage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-3xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Publicar Novo Frete</h1>
         <p className="text-gray-500 mt-1">Preencha os dados da carga para encontrar caminhoneiros</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Dados do Frete</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <Card>
+          <CardHeader>
+            <CardTitle>Dados do Frete</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
             <div>
               <Label htmlFor="titulo">Título do Frete</Label>
               <Input
@@ -123,73 +165,85 @@ export default function NovoFretePage() {
                 <p className="text-red-500 text-sm mt-1">{errors.tipo_carga.message}</p>
               )}
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="grid grid-cols-2 gap-4">
+        {/* Origin / Destination */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Rota</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="origem_cidade">Cidade de Origem</Label>
-                <Input
-                  id="origem_cidade"
-                  placeholder="São Paulo"
-                  {...register("origem_cidade")}
-                  className="mt-1"
+                <CitySearchInput
+                  label="Cidade de Origem"
+                  placeholder="Ex: São Paulo"
+                  value={origemDisplay}
+                  onSelect={(city) => {
+                    setValue("origem_cidade", city.cidade);
+                    setValue("origem_estado", city.estado);
+                    setOrigemDisplay(city.displayName);
+                    setOrigemCoord({ lat: city.lat, lng: city.lng, label: city.displayName });
+                  }}
+                  error={errors.origem_cidade?.message || errors.origem_estado?.message}
                 />
-                {errors.origem_cidade && (
-                  <p className="text-red-500 text-sm mt-1">{errors.origem_cidade.message}</p>
+                {/* Hidden inputs for form validation */}
+                <input type="hidden" {...register("origem_cidade")} />
+                <input type="hidden" {...register("origem_estado")} />
+                {origemCoord && (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ {origemCoord.label}
+                  </p>
                 )}
               </div>
+
               <div>
-                <Label>Estado de Origem</Label>
-                <Select onValueChange={(v) => setValue("origem_estado", v)}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="UF" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTADOS_BRASILEIROS.map((e) => (
-                      <SelectItem key={e.value} value={e.value}>
-                        {e.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.origem_estado && (
-                  <p className="text-red-500 text-sm mt-1">{errors.origem_estado.message}</p>
+                <CitySearchInput
+                  label="Cidade de Destino"
+                  placeholder="Ex: Cuiabá"
+                  value={destinoDisplay}
+                  onSelect={(city) => {
+                    setValue("destino_cidade", city.cidade);
+                    setValue("destino_estado", city.estado);
+                    setDestinoDisplay(city.displayName);
+                    setDestinoCoord({ lat: city.lat, lng: city.lng, label: city.displayName });
+                  }}
+                  error={errors.destino_cidade?.message || errors.destino_estado?.message}
+                />
+                <input type="hidden" {...register("destino_cidade")} />
+                <input type="hidden" {...register("destino_estado")} />
+                {destinoCoord && (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ {destinoCoord.label}
+                  </p>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="destino_cidade">Cidade de Destino</Label>
-                <Input
-                  id="destino_cidade"
-                  placeholder="Cuiabá"
-                  {...register("destino_cidade")}
-                  className="mt-1"
-                />
-                {errors.destino_cidade && (
-                  <p className="text-red-500 text-sm mt-1">{errors.destino_cidade.message}</p>
-                )}
-              </div>
-              <div>
-                <Label>Estado de Destino</Label>
-                <Select onValueChange={(v) => setValue("destino_estado", v)}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="UF" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTADOS_BRASILEIROS.map((e) => (
-                      <SelectItem key={e.value} value={e.value}>
-                        {e.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.destino_estado && (
-                  <p className="text-red-500 text-sm mt-1">{errors.destino_estado.message}</p>
-                )}
-              </div>
-            </div>
+            {/* Map preview */}
+            {origemCoord && destinoCoord && distanciaKm !== null && (
+              <RouteMap
+                origin={origemCoord}
+                destination={destinoCoord}
+                distanciaKm={distanciaKm}
+              />
+            )}
 
+            {(!origemCoord || !destinoCoord) && (
+              <div className="h-24 bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-sm">
+                Selecione origem e destino para ver o mapa e a distância
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Cargo & Pricing */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Carga e Valores</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="peso_total_ton">Peso Total (ton)</Label>
@@ -218,9 +272,6 @@ export default function NovoFretePage() {
                   {...register("peso_minimo_ton")}
                   className="mt-1"
                 />
-                {errors.peso_minimo_ton && (
-                  <p className="text-red-500 text-sm mt-1">{errors.peso_minimo_ton.message}</p>
-                )}
               </div>
               <div>
                 <Label htmlFor="valor_por_tonelada">Valor/Ton (R$)</Label>
@@ -240,6 +291,21 @@ export default function NovoFretePage() {
               </div>
             </div>
 
+            {/* Value summary */}
+            {distanciaKm && (
+              <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-800 grid grid-cols-2 gap-2">
+                <span>Distância estimada: <strong>~{distanciaKm.toLocaleString("pt-BR")} km</strong></span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Dates */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Datas</CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="data_coleta">Data de Coleta</Label>
@@ -266,38 +332,42 @@ export default function NovoFretePage() {
                 )}
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            <div>
-              <Label htmlFor="observacoes">Observações</Label>
-              <Textarea
-                id="observacoes"
-                placeholder="Informações adicionais sobre a carga, requisitos especiais, etc."
-                {...register("observacoes")}
-                className="mt-1"
-                rows={3}
-              />
-            </div>
+        {/* Observations */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Observações</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              id="observacoes"
+              placeholder="Informações adicionais sobre a carga, requisitos especiais, etc."
+              {...register("observacoes")}
+              rows={3}
+            />
+          </CardContent>
+        </Card>
 
-            <div className="flex gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.back()}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                className="flex-1 bg-blue-900 hover:bg-blue-800"
-                disabled={loading}
-              >
-                {loading ? "Publicando..." : "Publicar Frete"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+        <div className="flex gap-3 pb-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.back()}
+            className="flex-1"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            className="flex-1 bg-blue-900 hover:bg-blue-800"
+            disabled={loading}
+          >
+            {loading ? "Publicando..." : "Publicar Frete"}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

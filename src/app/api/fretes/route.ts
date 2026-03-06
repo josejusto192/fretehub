@@ -16,6 +16,11 @@ const freteSchema = z.object({
   data_coleta: z.string().min(1, "Data de coleta obrigatória"),
   prazo_entrega: z.string().min(1, "Prazo de entrega obrigatório"),
   observacoes: z.string().optional(),
+  distancia_km: z.number().int().positive().optional().nullable(),
+  origem_lat: z.number().optional().nullable(),
+  origem_lng: z.number().optional().nullable(),
+  destino_lat: z.number().optional().nullable(),
+  destino_lng: z.number().optional().nullable(),
 });
 
 export async function GET(request: NextRequest) {
@@ -91,6 +96,11 @@ export async function POST(request: NextRequest) {
         data_coleta: new Date(data.data_coleta).toISOString(),
         prazo_entrega: new Date(data.prazo_entrega).toISOString(),
         observacoes: data.observacoes,
+        distancia_km: data.distancia_km ?? null,
+        origem_lat: data.origem_lat ?? null,
+        origem_lng: data.origem_lng ?? null,
+        destino_lat: data.destino_lat ?? null,
+        destino_lng: data.destino_lng ?? null,
       })
       .select()
       .single();

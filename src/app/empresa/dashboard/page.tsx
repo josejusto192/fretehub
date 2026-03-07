@@ -192,16 +192,27 @@ export default async function EmpresaDashboard() {
                     </div>
                   </div>
 
-                  <Link href={`/empresa/fretes/${frete.id}/candidaturas`}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0 group-hover:border-blue-300 group-hover:text-blue-700 transition-colors font-semibold"
-                    >
-                      Candidaturas
-                      <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                    </Button>
-                  </Link>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {(frete.status === "em_andamento" || frete.status === "concluido") ? (
+                      <Link href={`/empresa/fretes/${frete.id}/acompanhar`}>
+                        <Button size="sm" className="bg-blue-900 hover:bg-blue-800 font-semibold">
+                          Acompanhar
+                          <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Link href={`/empresa/fretes/${frete.id}/candidaturas`}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="group-hover:border-blue-300 group-hover:text-blue-700 transition-colors font-semibold"
+                        >
+                          Candidaturas
+                          <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

@@ -71,6 +71,15 @@ export async function PATCH(
       );
 
       await admin.from("fretes").update({ status: "em_andamento" }).eq("id", id);
+
+      // Auto-create the first lifecycle stage
+      await admin.from("frete_etapas").insert({
+        frete_id: id,
+        candidatura_id: candidaturaId,
+        tipo: "aceito",
+        confirmado_por: session.userId,
+        observacoes: "Candidatura aceita pela empresa",
+      });
     } else if (status === "recusada") {
       await sendCandidaturaRecusadaEmail(
         candidatura.caminhoneiro.user.email,

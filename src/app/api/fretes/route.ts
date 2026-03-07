@@ -21,6 +21,10 @@ const freteSchema = z.object({
   origem_lng: z.number().optional().nullable(),
   destino_lat: z.number().optional().nullable(),
   destino_lng: z.number().optional().nullable(),
+  destinatario_nome: z.string().optional(),
+  destinatario_telefone: z.string().optional(),
+  destinatario_documento: z.string().optional(),
+  destinatario_instrucoes: z.string().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -101,6 +105,10 @@ export async function POST(request: NextRequest) {
         origem_lng: data.origem_lng ?? null,
         destino_lat: data.destino_lat ?? null,
         destino_lng: data.destino_lng ?? null,
+        destinatario_nome: data.destinatario_nome ?? null,
+        destinatario_telefone: data.destinatario_telefone ?? null,
+        destinatario_documento: data.destinatario_documento ?? null,
+        destinatario_instrucoes: data.destinatario_instrucoes ?? null,
       })
       .select()
       .single();

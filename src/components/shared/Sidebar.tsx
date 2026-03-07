@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  Activity,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -29,11 +30,13 @@ interface SidebarProps {
 const navLinks = {
   empresa: [
     { href: "/empresa/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/empresa/fretes/ativos", label: "Fretes em Andamento", icon: Activity },
     { href: "/empresa/fretes/novo", label: "Publicar Frete", icon: PlusCircle },
     { href: "/empresa/perfil", label: "Meu Perfil", icon: User },
   ],
   caminhoneiro: [
     { href: "/caminhoneiro/dashboard", label: "Buscar Fretes", icon: Search },
+    { href: "/caminhoneiro/fretes/ativos", label: "Fretes Ativos", icon: Activity },
     { href: "/caminhoneiro/candidaturas", label: "Candidaturas", icon: ClipboardList },
     { href: "/caminhoneiro/perfil", label: "Meu Perfil", icon: User },
   ],

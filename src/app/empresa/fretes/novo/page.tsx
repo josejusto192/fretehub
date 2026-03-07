@@ -47,6 +47,11 @@ const freteSchema = z.object({
   data_coleta: z.string().min(1, "Data de coleta obrigatória"),
   prazo_entrega: z.string().min(1, "Prazo de entrega obrigatório"),
   observacoes: z.string().optional(),
+  // Destinatário
+  destinatario_nome: z.string().min(2, "Nome do destinatário obrigatório"),
+  destinatario_telefone: z.string().min(10, "Telefone do destinatário obrigatório"),
+  destinatario_documento: z.string().optional(),
+  destinatario_instrucoes: z.string().optional(),
 });
 
 type FreteForm = z.infer<typeof freteSchema>;
@@ -337,10 +342,74 @@ export default function NovoFretePage() {
           </CardContent>
         </Card>
 
+        {/* Recipient */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <span className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600 text-sm">📦</span>
+              Informações do Destinatário
+            </CardTitle>
+            <p className="text-sm text-gray-500 mt-1">
+              Quem vai receber a carga no destino — essas informações serão repassadas ao motorista e constarão no documento de transporte.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="destinatario_nome">Nome do responsável <span className="text-red-500">*</span></Label>
+                <Input
+                  id="destinatario_nome"
+                  placeholder="Ex: João da Silva"
+                  {...register("destinatario_nome")}
+                  className="mt-1"
+                />
+                {errors.destinatario_nome && (
+                  <p className="text-red-500 text-sm mt-1">{errors.destinatario_nome.message}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="destinatario_telefone">Telefone <span className="text-red-500">*</span></Label>
+                <Input
+                  id="destinatario_telefone"
+                  placeholder="Ex: (65) 99999-1234"
+                  {...register("destinatario_telefone")}
+                  className="mt-1"
+                />
+                {errors.destinatario_telefone && (
+                  <p className="text-red-500 text-sm mt-1">{errors.destinatario_telefone.message}</p>
+                )}
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="destinatario_documento">
+                CPF / CNPJ <span className="text-gray-400 text-xs">(opcional)</span>
+              </Label>
+              <Input
+                id="destinatario_documento"
+                placeholder="Ex: 123.456.789-00"
+                {...register("destinatario_documento")}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="destinatario_instrucoes">
+                Instruções de entrega <span className="text-gray-400 text-xs">(opcional)</span>
+              </Label>
+              <Textarea
+                id="destinatario_instrucoes"
+                placeholder="Ex: Descarregar no galpão 3, acesso pela portaria lateral. Horário: 7h–17h."
+                {...register("destinatario_instrucoes")}
+                rows={3}
+                className="mt-1"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Observations */}
         <Card>
           <CardHeader>
-            <CardTitle>Observações</CardTitle>
+            <CardTitle>Observações gerais</CardTitle>
           </CardHeader>
           <CardContent>
             <Textarea

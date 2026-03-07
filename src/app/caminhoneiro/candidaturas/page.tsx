@@ -100,11 +100,19 @@ export default async function MeusCandidaturasPage() {
             >
               {/* Accepted banner */}
               {candidatura.status === "aceita" && (
-                <div className="bg-green-500 px-5 py-2.5 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
-                  <p className="text-white text-sm font-semibold">
-                    Candidatura aceita! Entre em contato com a empresa para combinar os próximos passos.
-                  </p>
+                <div className="bg-gradient-to-r from-green-600 to-green-500 px-5 py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+                    <p className="text-white text-sm font-semibold">
+                      Candidatura aceita! Acompanhe todas as etapas do frete.
+                    </p>
+                  </div>
+                  <Link href={`/caminhoneiro/fretes/${candidatura.frete_id}/acompanhar`}>
+                    <Button size="sm" className="bg-white text-green-700 hover:bg-green-50 font-bold shrink-0 gap-1">
+                      Acompanhar frete
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </Link>
                 </div>
               )}
 
@@ -173,12 +181,21 @@ export default async function MeusCandidaturasPage() {
                       <div className="font-medium">Coleta:</div>
                       <div>{new Date(candidatura.frete.data_coleta).toLocaleDateString("pt-BR")}</div>
                     </div>
-                    <Link href={`/caminhoneiro/fretes/${candidatura.frete_id}`}>
-                      <Button variant="outline" size="sm" className="gap-1.5 hover:border-blue-300 hover:text-blue-700">
-                        Ver frete
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Button>
-                    </Link>
+                    {candidatura.status === "aceita" ? (
+                      <Link href={`/caminhoneiro/fretes/${candidatura.frete_id}/acompanhar`}>
+                        <Button size="sm" className="gap-1.5 bg-blue-900 hover:bg-blue-800 font-semibold">
+                          Acompanhar
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Link href={`/caminhoneiro/fretes/${candidatura.frete_id}`}>
+                        <Button variant="outline" size="sm" className="gap-1.5 hover:border-blue-300 hover:text-blue-700">
+                          Ver frete
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>

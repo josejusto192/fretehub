@@ -127,7 +127,21 @@ export async function POST(
     .eq("frete_id", freteId)
     .order("confirmado_em", { ascending: true });
 
-  const tiposCriados = (existingEtapas ?? []).map((e) => e.tipo as EtapaTipo);
+  let tiposCriados = (existingEtapas ?? []).map((e) => e.tipo as EtapaTipo);
+
+  // Auto-heal: fretes accepted before migration v3 have no etapas rows.
+  // If frete is em_andamento and no etapas exist, auto-create "aceito" so the
+  // sequence can proceed normally.
+  if (tiposCriados.length === 0 && frete.status === "em_andamento" && tipo !== "aceito") {
+    await admin.from("frete_etapas").insert({
+      frete_id: freteId,
+      candidatura_id: candidaturaAceita?.id ?? null,
+      tipo: "aceito",
+      observacoes: "Etapa reconstruída automaticamente (frete aceito antes da migration v3)",
+      confirmado_por: frete.empresa_id,
+    });
+    tiposCriados = ["aceito"];
+  }
 
   // Cannot create same etapa twice
   if (tiposCriados.includes(tipo)) {
